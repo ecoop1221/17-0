@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>17-0 — Build the Perfect NFL Season</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Archivo:wght@400;500;600;800;900&family=Archivo+Black&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   17-0  —  THE PERFECT SEASON DRAFT  (football, 82-0 format)
+   Slot machine drills down: CONFERENCE > DIVISION > ERA.
+   The landing pools EVERY player from ANY team in that division,
+   in that era. Draft any open position (QB + WR from one landing OK).
+   TWO independent, limited shuffles:
+     - Shuffle Era : holds conf+div, swaps only the era
+     - Shuffle Div : jumps to a new division (broadest reroll)
+   Fill 9 positions, sim a 17-game season vs a non-linear curve.
+   Stats are real career/peak NFL numbers. Demo only — not for sale.
+   ============================================================ */
+:root{
+  --field:#0a1410;--field2:#0f1f17;--chalk:#f4f1e8;
+  --gold:#f5c542;--gold-deep:#c8961f;--red:#d8423a;--steel:#7d8a99;
+  --card:#14241c;--card-edge:#22402f;
+  --good:#4fd17a;--mid:#f5c542;--bad:#e0654d;
+  --turf-line:#2f5a3c;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Archivo',-apple-system,'Helvetica Neue',sans-serif;color:var(--chalk);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+  background:radial-gradient(circle at 50% -10%, #16301f 0%, transparent 55%),
+    repeating-linear-gradient(90deg,#0a1410 0,#0a1410 60px,#0b1712 60px,#0b1712 120px),var(--field);}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:repeating-linear-gradient(0deg,transparent 0,transparent 78px,rgba(244,241,232,.03) 78px,rgba(244,241,232,.03) 80px);}
+.wrap{position:relative;z-index:1;max-width:800px;margin:0 auto;padding:22px 16px 80px;padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right));padding-bottom:max(80px,calc(env(safe-area-inset-bottom) + 60px));}
+.brand{text-align:center;margin:14px 0 8px;}
+.brand h1{font-family:'Archivo Black','Arial Black',sans-serif;font-size:clamp(58px,17vw,118px);line-height:.82;letter-spacing:-3px;color:var(--chalk);text-shadow:0 4px 0 var(--gold-deep),0 6px 18px rgba(0,0,0,.6);}
+.brand h1 .o{color:var(--gold);}
+.brand .tag{font-family:'Oswald',-apple-system,'Helvetica Neue',sans-serif;text-transform:uppercase;letter-spacing:5px;font-size:clamp(11px,3vw,15px);color:var(--steel);margin-top:10px;}
+.brand .sub{font-size:13px;color:var(--steel);margin-top:6px;max-width:470px;margin-left:auto;margin-right:auto;line-height:1.5;}
+.screen{display:none;animation:fade .4s ease;}
+.screen.active{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+.btn{font-family:'Oswald',-apple-system,'Helvetica Neue',sans-serif;font-weight:600;text-transform:uppercase;letter-spacing:2px;background:var(--gold);color:#1a1205;border:none;border-radius:4px;padding:14px 24px;font-size:15px;cursor:pointer;transition:.15s;box-shadow:0 4px 0 var(--gold-deep);}
+.btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 0 var(--gold-deep);}
+.btn:active:not(:disabled){transform:translateY(2px);box-shadow:0 2px 0 var(--gold-deep);}
+.btn:disabled{background:#3a4a40;color:#6f8076;box-shadow:0 4px 0 #243029;cursor:not-allowed;}
+.btn.ghost{background:transparent;color:var(--chalk);box-shadow:inset 0 0 0 2px var(--card-edge);}
+.btn.ghost:hover:not(:disabled){box-shadow:inset 0 0 0 2px var(--gold);}
+.btn.sm{padding:9px 13px;font-size:12px;letter-spacing:1px;}
+.start-card{background:linear-gradient(180deg,var(--field2),var(--field));border:1px solid var(--card-edge);border-radius:10px;padding:26px 22px;margin-top:22px;text-align:center;}
+.start-card .how{text-align:left;max-width:560px;margin:0 auto 20px;}
+.start-card .how li{font-size:14px;color:#c9d3cb;margin:9px 0;padding-left:26px;position:relative;list-style:none;line-height:1.45;}
+.start-card .how li::before{content:attr(data-n);position:absolute;left:0;top:-1px;color:var(--gold);font-family:'Archivo Black','Arial Black',sans-serif;font-size:13px;}
+.modepick{display:flex;gap:10px;justify-content:center;margin:18px 0;flex-wrap:wrap;}
+.modebtn{flex:1;min-width:200px;background:var(--card);border:1px solid var(--card-edge);border-radius:8px;padding:14px;cursor:pointer;text-align:left;transition:.15s;}
+.modebtn:hover{border-color:var(--gold);}
+.modebtn.on{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold);}
+.modebtn b{font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:3px;}
+.modebtn span{font-size:12px;color:var(--steel);line-height:1.4;}
+
+.hud{display:flex;justify-content:space-between;align-items:center;background:var(--field2);border:1px solid var(--card-edge);border-radius:8px;padding:11px 15px;margin-bottom:12px;position:sticky;top:8px;z-index:5;backdrop-filter:blur(4px);}
+.hud .rnd{font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;text-transform:uppercase;letter-spacing:1px;font-size:12px;color:var(--steel);}
+.hud .rnd b{color:var(--gold);font-size:18px;display:block;letter-spacing:1px;}
+.skips{display:flex;gap:12px;}
+.skipitem{text-align:center;}
+.skipitem .lab{font-size:9px;color:var(--steel);text-transform:uppercase;letter-spacing:.5px;}
+.skipitem .v{font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;font-weight:700;font-size:16px;color:var(--gold);}
+.skipitem .v.used{color:#34452f;}
+.progress{display:flex;gap:4px;margin-bottom:16px;}
+.progress .pip{flex:1;height:5px;border-radius:3px;background:#23362b;}
+.progress .pip.done{background:var(--gold);}
+.progress .pip.cur{background:var(--chalk);}
+
+/* SLOT — 4 reels */
+.slot{background:linear-gradient(180deg,#11221a,#0c1813);border:1px solid var(--card-edge);border-radius:10px;padding:16px;text-align:center;margin-bottom:14px;}
+.reels{display:flex;gap:7px;justify-content:center;margin-bottom:8px;flex-wrap:wrap;}
+.reel{background:#0a1410;border:1px solid var(--card-edge);border-radius:7px;padding:9px 10px;min-width:96px;flex:1;max-width:150px;overflow:hidden;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.reel .rl{font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--steel);margin-bottom:3px;}
+.reel .rv{font-family:'Archivo Black','Arial Black',sans-serif;font-size:clamp(13px,3.4vw,17px);line-height:1;}
+.reel.conf .rv{color:#7fd0ff;}
+.reel.div .rv{color:#c9a0ff;}
+.reel.team .rv{color:var(--chalk);}
+.reel.era .rv{color:var(--gold);}
+.slot.spinning .rv{animation:flick .08s linear infinite;}
+@keyframes flick{0%{opacity:.4;}50%{opacity:1;}100%{opacity:.4;}}
+.needpos{font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;text-transform:uppercase;letter-spacing:1px;font-size:12px;color:var(--steel);margin-top:8px;}
+.needpos b{color:var(--chalk);}
+.slot-actions{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-top:12px;}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:11px;margin:8px 0;}
+@media(max-width:480px){.cards{grid-template-columns:1fr;gap:9px;}}
+.pcard{background:var(--card);border:1px solid var(--card-edge);border-radius:9px;padding:14px;cursor:pointer;transition:.15s;position:relative;overflow:hidden;}
+.pcard::after{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--gold);opacity:.5;}
+.pcard:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:0 8px 22px rgba(0,0,0,.4);}
+.pcard.taken{opacity:.32;pointer-events:none;}
+.pcard .posbadge{display:inline-block;background:var(--gold);color:#1a1205;font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;font-weight:700;font-size:10px;letter-spacing:1px;padding:2px 7px;border-radius:3px;margin-bottom:5px;}
+.pcard .posbadge.filled{background:#34452f;color:#7d8a99;}
+.pcard .nm{font-family:'Archivo',-apple-system,'Helvetica Neue',sans-serif;font-weight:900;font-size:17px;line-height:1.05;}
+.pcard .era{font-size:11px;color:var(--steel);font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;letter-spacing:.5px;margin:2px 0 8px;}
+.pcard .stats-real{font-family:'Space Mono',monospace;font-size:11px;color:#9fb0a4;line-height:1.6;background:#0d1813;border-radius:6px;padding:8px 10px;margin-bottom:8px;}
+.pcard .stats-real b{color:var(--chalk);}
+.statrow{display:flex;align-items:center;gap:6px;margin:4px 0;font-size:11px;}
+.statrow .sl{width:60px;color:var(--steel);font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;letter-spacing:.5px;text-transform:uppercase;flex-shrink:0;}
+.statrow .bar{flex:1;height:6px;background:#22332a;border-radius:3px;overflow:hidden;}
+.statrow .bar i{display:block;height:100%;border-radius:3px;}
+.statrow .sv{width:22px;text-align:right;font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;font-weight:600;color:var(--chalk);}
+.pcard .why{font-size:11px;color:#8aa094;line-height:1.4;margin-top:8px;font-style:italic;border-top:1px solid var(--card-edge);padding-top:7px;}
+
+.roster-strip{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:18px;}
+.roster-strip .chip{background:var(--field2);border:1px solid var(--card-edge);border-radius:20px;padding:5px 11px;font-size:11px;font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;letter-spacing:.5px;}
+.roster-strip .chip b{color:var(--gold);}
+.roster-strip .chip.empty{opacity:.4;}
+.roster-strip .chip.cur{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold);opacity:1;}
+
+/* ---- FIELD DIAGRAM (lineup tracker, absolute formation) ---- */
+.field{position:relative;width:100%;aspect-ratio:5/4;max-height:440px;background:
+  repeating-linear-gradient(0deg,rgba(255,255,255,.06) 0 2px,transparent 2px 9%),
+  linear-gradient(180deg,#0d2415 0%,#13301d 50%,#0d2415 100%);
+  border:1px solid var(--turf-line);border-radius:10px;margin:14px 0 4px;overflow:hidden;}
+.field::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;background:rgba(244,241,232,.5);} /* LOS */
+.field .side-label{position:absolute;left:50%;transform:translateX(-50%);font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;text-transform:uppercase;letter-spacing:3px;font-size:9px;color:rgba(244,241,232,.4);z-index:1;}
+.field .side-label.off{top:6px;}
+.field .side-label.def{bottom:6px;}
+/* a positioned slot */
+.fslot{position:absolute;transform:translate(-50%,-50%);text-align:center;
+  background:rgba(8,16,12,.82);border:1px solid var(--card-edge);border-radius:8px;
+  padding:5px 4px;cursor:pointer;transition:.18s;z-index:2;}
+.fslot:hover{border-color:var(--gold);box-shadow:0 0 10px rgba(245,197,66,.3);}
+.fslot .pos{font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;font-weight:700;font-size:11px;letter-spacing:1px;color:var(--steel);}
+.fslot .who{font-family:'Archivo',-apple-system,'Helvetica Neue',sans-serif;font-weight:800;font-size:9.5px;line-height:1.05;margin-top:1px;color:var(--chalk);min-height:11px;}
+.fslot .yr{font-size:7.5px;color:var(--steel);font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;white-space:nowrap;}
+.fslot.filled{background:linear-gradient(180deg,#1d4a2e,#143620);border-color:var(--good);}
+.fslot.filled .pos{color:var(--good);}
+.fslot.cur{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 0 16px rgba(245,197,66,.45);}
+.fslot.cur .pos{color:var(--gold);}
+.fslot .dot{position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;background:#34452f;border:2px solid #0d2415;font-size:9px;line-height:11px;color:#0a1410;font-weight:700;}
+.fslot.filled .dot{background:var(--good);}
+.fslot.cur .dot{background:var(--gold);}
+/* the spread line units (OL/DL) — wide bars across the trenches */
+.fline{position:absolute;left:50%;transform:translate(-50%,-50%);width:62%;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  background:rgba(8,16,12,.82);border:1px solid var(--card-edge);border-radius:8px;
+  padding:6px 8px;cursor:pointer;transition:.18s;z-index:2;}
+.fline:hover{border-color:var(--gold);box-shadow:0 0 10px rgba(245,197,66,.3);}
+.fline::before,.fline::after{content:"";flex:1;height:0;border-top:2px dotted rgba(244,241,232,.25);} /* linemen suggestion */
+.fline .lwrap{flex:0 0 auto;text-align:center;}
+.fline .pos{font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;font-weight:700;font-size:11px;letter-spacing:1px;color:var(--steel);}
+.fline .who{font-family:'Archivo',-apple-system,'Helvetica Neue',sans-serif;font-weight:800;font-size:9.5px;line-height:1.05;color:var(--chalk);min-height:11px;}
+.fline .yr{font-size:7.5px;color:var(--steel);font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;}
+.fline.filled{background:linear-gradient(180deg,#1d4a2e,#143620);border-color:var(--good);}
+.fline.filled .pos{color:var(--good);}
+.fline.cur{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 0 16px rgba(245,197,66,.45);}
+.fline.cur .pos{color:var(--gold);}
+.fline .dot{position:absolute;top:-6px;right:8px;width:14px;height:14px;border-radius:50%;background:#34452f;border:2px solid #0d2415;font-size:9px;line-height:11px;color:#0a1410;font-weight:700;}
+.fline.filled .dot{background:var(--good);}
+.fline.cur .dot{background:var(--gold);}
+@media(max-width:540px){
+  .fslot .who,.fline .who{font-size:9px;}
+  .fslot{padding:4px 3px;}
+  /* keep flanked WR/CB from clipping the right edge */
+  .field{aspect-ratio:4/5;max-height:none;}
+  .fslot .pos{font-size:10px;}
+  .fslot .yr,.fline .yr{font-size:7px;}
+  .fline{width:70%;}
+}
+.fslot.filled,.fline.filled{cursor:pointer;}
+.fslot.filled:hover,.fline.filled:hover{border-color:var(--gold);box-shadow:0 0 10px rgba(245,197,66,.35);}
+.draft-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;margin:8px 0 2px;}
+.tap-hint{font-size:11px;color:#5e6e62;font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;letter-spacing:.5px;font-style:italic;}
+.held-note{background:rgba(245,197,66,.08);border:1px solid var(--gold-deep);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:12.5px;color:#d8c49a;line-height:1.5;}
+.held-note b{color:var(--gold);}
+.held-note .btn{margin-left:6px;vertical-align:middle;}
+.passed-box{background:var(--field2);border:1px solid var(--card-edge);border-radius:8px;padding:10px 12px;margin-top:10px;}
+.passed-h{font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;text-transform:uppercase;letter-spacing:1.5px;font-size:11px;color:var(--steel);margin-bottom:7px;}
+.passed-list{display:flex;flex-wrap:wrap;gap:6px;}
+.passed-chip{font-size:11px;background:rgba(8,16,12,.7);border:1px solid var(--card-edge);border-radius:14px;padding:4px 9px;color:#b9c6bc;}
+.passed-chip em{color:var(--steel);font-style:normal;font-size:9.5px;}
+
+.result-hero{text-align:center;padding:24px 14px 14px;}
+.record{font-family:'Archivo Black','Arial Black',sans-serif;font-size:clamp(70px,20vw,128px);line-height:.85;}
+.record.perfect{color:var(--gold);text-shadow:0 5px 0 var(--gold-deep),0 0 40px rgba(245,197,66,.5);animation:pulse 1.6s infinite;}
+@keyframes pulse{0%,100%{text-shadow:0 5px 0 var(--gold-deep),0 0 30px rgba(245,197,66,.35);}50%{text-shadow:0 5px 0 var(--gold-deep),0 0 55px rgba(245,197,66,.7);}}
+.result-title{font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;text-transform:uppercase;letter-spacing:3px;font-size:clamp(18px,5vw,26px);margin:6px 0;}
+.result-sub{color:var(--steel);font-size:14px;max-width:450px;margin:0 auto;line-height:1.5;}
+.badge{display:inline-block;background:var(--gold);color:#1a1205;font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:2px;font-size:12px;padding:6px 14px;border-radius:4px;margin-top:12px;}
+.tier{display:inline-block;font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;text-transform:uppercase;letter-spacing:2px;font-size:12px;color:var(--gold);border:1px solid var(--gold-deep);border-radius:20px;padding:4px 14px;margin-top:10px;}
+.arch{margin-top:12px;}
+.arch .an{font-family:'Archivo Black','Arial Black',sans-serif;font-size:clamp(22px,6vw,32px);color:var(--chalk);letter-spacing:-1px;}
+.arch .ad{font-size:13px;color:var(--steel);max-width:420px;margin:2px auto 0;line-height:1.4;}
+.verdict-row{display:flex;gap:10px;align-items:flex-start;margin:9px 0;font-size:13px;line-height:1.45;}
+.verdict-row .vi{flex:0 0 auto;font-size:18px;}
+.verdict-row b{color:var(--chalk);}
+.verdict-row .mvp{color:var(--good);}
+.verdict-row .weak{color:var(--bad);}
+.season-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;max-width:520px;margin:20px auto;}
+.gm{aspect-ratio:1;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;font-size:10px;}
+.gm.W{background:linear-gradient(180deg,#1d4a2e,#143620);border:1px solid var(--good);}
+.gm.L{background:linear-gradient(180deg,#4a1d1d,#361414);border:1px solid var(--red);}
+.gm b{font-size:14px;font-weight:700;}.gm.W b{color:var(--good);}.gm.L b{color:var(--red);}
+.gm .wk{font-size:8px;color:var(--steel);}
+.analysis{background:var(--field2);border:1px solid var(--card-edge);border-radius:9px;padding:18px;margin:16px 0;}
+.analysis h3{font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;text-transform:uppercase;letter-spacing:2px;font-size:13px;color:var(--gold);margin-bottom:10px;border-bottom:1px solid var(--card-edge);padding-bottom:7px;}
+.analysis .line{display:flex;gap:9px;margin:8px 0;font-size:13px;line-height:1.45;color:#c9d3cb;}
+.analysis .line .ic{flex-shrink:0;font-weight:700;}
+.analysis .line.syn .ic{color:var(--good);}.analysis .line.pen .ic{color:var(--bad);}
+.ratings-2col{display:grid;grid-template-columns:1fr 1fr;gap:8px 22px;}
+@media(max-width:540px){
+  .ratings-2col{grid-template-columns:1fr;}
+  .season-grid{grid-template-columns:repeat(6,1fr);gap:4px;max-width:340px;}
+  .gm{font-size:8px;}
+  .gm b{font-size:11px;}
+  .gm .wk{font-size:7px;}
+  .start-card{padding:20px 15px;}
+  .analysis{padding:14px;}
+  .slot{padding:13px 11px;}
+  .reel{min-width:84px;padding:8px 7px;height:54px;}
+  .reel .rl{font-size:7.5px;}
+  .hud{padding:9px 12px;}
+  .result-hero{padding:18px 10px 12px;}
+  .btn{padding:13px 18px;letter-spacing:1.5px;}
+  .actions .btn{flex:1 1 auto;min-width:140px;}
+}
+@media(max-width:380px){
+  .season-grid{grid-template-columns:repeat(5,1fr);}
+  .reels{gap:5px;}
+  .reel{min-width:74px;}
+}
+.rline{display:flex;align-items:center;gap:8px;font-size:12px;}
+.rline .rl{width:58px;color:var(--steel);font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;text-transform:uppercase;letter-spacing:.5px;}
+.rline .rbar{flex:1;height:7px;background:#22332a;border-radius:4px;overflow:hidden;}
+.rline .rbar i{display:block;height:100%;}
+.rline .rv{width:24px;text-align:right;font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;font-weight:600;}
+.share-box{background:#0d1813;border:1px dashed var(--card-edge);border-radius:8px;padding:14px;font-family:'Space Mono',monospace;font-size:12px;color:#bcd;white-space:pre-wrap;line-height:1.5;margin:14px 0;}
+.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px;}
+.foot{text-align:center;color:#42554a;font-size:11px;margin-top:34px;line-height:1.6;}
+.foot b{color:var(--steel);}
+.empty-note{text-align:center;color:var(--steel);font-size:13px;padding:14px;font-style:italic;}
+.landing-card{text-align:center;}
+.landing-h{font-family:'Archivo Black','Arial Black',sans-serif;font-size:clamp(26px,7vw,40px);color:var(--chalk);letter-spacing:-1px;margin-bottom:8px;}
+.landing-sub{color:var(--steel);font-size:14px;line-height:1.5;max-width:440px;margin:0 auto 18px;}
+.env-pill{display:inline-block;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:1.5px;font-size:11px;padding:5px 14px;border-radius:20px;margin-bottom:20px;border:1px solid var(--card-edge);color:var(--steel);}
+.env-pill.ok{border-color:var(--good);color:var(--good);}
+.env-pill.warn{border-color:var(--gold-deep);color:var(--gold);}
+.landing-choices{display:flex;flex-direction:column;gap:12px;max-width:360px;margin:0 auto;}
+.btn.big{font-size:17px;padding:16px;}
+.landing-note{margin-top:16px;font-size:13px;color:var(--steel);line-height:1.5;min-height:18px;}
+.landing-note b{color:var(--chalk);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <h1>17&#8209;<span class="o">0</span></h1>
+    <div class="tag">The Perfect Season Draft</div>
+    <div class="sub">Draft 9 all-time legends, one per position. Can your team go 17-0?</div>
+  </div>
+
+  <!-- LANDING / PREVIEW (first screen — choose how to play) -->
+  <section class="screen active" id="screen-landing">
+    <div class="start-card landing-card">
+      <div class="landing-h">Welcome to 17-0</div>
+      <div class="landing-sub" id="landingSub">The single-file perfect-season draft. Choose how you'd like to play.</div>
+
+      <div class="env-pill" id="envPill"></div>
+
+      <div class="landing-choices">
+        <button class="btn big" onclick="enterGame()">▶ Play Now</button>
+        <button class="btn ghost big" id="openBrowserBtn" onclick="openInBrowser(this)" style="display:none">Open in Browser ↗</button>
+      </div>
+
+      <div class="landing-note" id="shareNote"></div>
+
+      <div class="foot" style="margin-top:22px">
+        <b>Sharing your result card:</b> works best in <b>Safari</b> or <b>Chrome</b>.
+        If you opened this from a text, tap your browser's share icon and choose
+        <b>“Open in Safari”</b> (or “Open in Chrome”) so the Share button can post your card.
+      </div>
+    </div>
+  </section>
+
+  <!-- START -->
+  <section class="screen" id="screen-start">
+    <div class="start-card">
+      <ul class="how">
+        <li data-n="1"><b>Draft 9 positions.</b> Tap any open spot on the field to pick it.</li>
+        <li data-n="2"><b>Pick one player</b> from the players shown each round.</li>
+        <li data-n="3"><b>Shuffle</b> the era or division to find better options.</li>
+        <li data-n="4"><b>Go 17-0.</b> Fill all 9, then watch your season play out.</li>
+      </ul>
+      <button class="btn" onclick="startDraft()">Start The Draft</button>
+    </div>
+    <div class="foot">
+      Built on the 82-0 format, rebuilt for football. Names, teams, divisions, eras, and stats are real.<br>
+      Offensive and defensive lines are represented by their unit leader.<br>
+      <b>For demo purposes only — not for sale.</b><br>
+      <span style="opacity:.8">Tip: if you opened this from a message, tap the share icon and choose <b>Open in Safari</b> for the full experience and sharing.</span>
+    </div>
+  </section>
+
+  <!-- DRAFT -->
+  <section class="screen" id="screen-draft">
+    <div class="field" id="field">
+      <div class="side-label off">Offense</div>
+      <div class="side-label def">Defense</div>
+    </div>
+    <div class="hud">
+      <div class="rnd">Pick <b id="hud-round">1 / 9</b></div>
+      <div class="skips">
+        <div class="skipitem"><div class="lab">Era</div><div class="v" id="eraSkip">2</div></div>
+        <div class="skipitem"><div class="lab">Div</div><div class="v" id="divSkip">2</div></div>
+      </div>
+    </div>
+    <div class="progress" id="progress"></div>
+
+    <div class="slot" id="slot">
+      <div class="reels">
+        <div class="reel conf"><span class="rl">Conference</span><span class="rv" id="reelConf">—</span></div>
+        <div class="reel div"><span class="rl">Division</span><span class="rv" id="reelDiv">—</span></div>
+        <div class="reel era"><span class="rl">Era</span><span class="rv" id="reelEra">—</span></div>
+      </div>
+      <div class="needpos" id="needLine">Open positions: <b>all 9</b></div>
+      <div class="slot-actions" id="slotActions"></div>
+    </div>
+
+    <div class="draft-tools">
+      <span class="tap-hint">Tip: tap any spot on the field to draft or change a pick</span>
+    </div>
+    <div id="draftArea"></div>
+  </section>
+
+  <!-- RESULT -->
+  <section class="screen" id="screen-result">
+    <div class="result-hero">
+      <div class="record" id="recordBig">17-0</div>
+      <div class="result-title" id="resultTitle"></div>
+      <div class="result-sub" id="resultSub"></div>
+      <div id="badgeWrap"></div>
+      <div id="tierWrap"></div>
+      <div id="archWrap"></div>
+    </div>
+    <div class="season-grid" id="seasonGrid"></div>
+    <div class="analysis"><h3>The Verdict</h3><div id="verdictLines"></div></div>
+    <div class="analysis"><h3>Team Ratings</h3><div class="ratings-2col" id="teamRatings"></div></div>
+    <div class="analysis"><h3>What Decided It</h3><div id="synLines"></div></div>
+    <canvas id="shareCanvas" width="1080" height="1350" style="display:none"></canvas>
+    <div id="cardPreview" style="text-align:center;margin:14px 0"></div>
+    <div class="share-box" id="shareBox"></div>
+    <div class="actions">
+      <button class="btn" onclick="downloadCard(this)">📤 Share Record Card</button>
+      <button class="btn ghost" onclick="backToDraft()">Tweak Roster</button>
+      <button class="btn ghost" onclick="copyResult(this)">Copy Text</button>
+      <button class="btn ghost" onclick="location.reload()">Run It Back</button>
+    </div>
+    <div class="foot">17-0 — Build the perfect season.</div>
+  </section>
+</div>
+
+<script>
+/* ============================================================
+   DATA MODEL — real NFL structure
+   CONFERENCES > DIVISIONS > TEAMS > ERAS > [players]
+   Each player: pos, name, real stat line, archetype ratings, why.
+   Lines represented by their unit leader.
+   ============================================================ */
+const ERAS=["1970s","1980s","1990s","2000s","2010s","2020s"];
+const POSLABEL={QB:"Quarterback",RB:"Running Back",WR:"Wide Receiver",OL:"Offensive Line",DL:"Defensive Line",LB:"Outside LB",MLB:"Middle LB",CB:"Cornerback",S:"Safety"};
+const POSORDER=["QB","RB","WR","OL","DL","LB","MLB","CB","S"];
+/* The order positions are drafted in, one at a time:
+   lines first, RB second-to-last, QB last. */
+const DRAFT_ORDER=["OL","DL","WR","LB","MLB","CB","S","RB","QB"];
+const STATLABELS={
+  QB:["Arm","Accuracy","IQ","Mobility","Clutch"],RB:["Speed","Power","Vision","Hands"],
+  WR:["Speed","Hands","Route","YAC"],OL:["Pass Pro","Run Block","Strength","Anchor"],
+  DL:["Pass Rush","Run Stop","Power","Motor"],LB:["Coverage","Tackling","Speed","Pass Rush"],
+  MLB:["Coverage","Tackling","IQ","Range"],CB:["Coverage","Speed","Ball Skills","Tackling"],
+  S:["Coverage","Range","Hitting","Ball Skills"]
+};
+
+/* The structure. conf -> div -> team -> era -> players[] */
+const NFL={
+ "AFC":{
+  "North":{
+   "Steelers":{
+    "1970s":[
+      {pos:"DL",nm:"Joe Greene",real:"4× SB champ · 2× DPOY · Steel Curtain (leader)",s:[88,97,97,90],why:"Mean Joe — heart of a dynasty front."},
+      {pos:"LB",nm:"Jack Ham",real:"8× Pro Bowl · 32 INT · all-time cover LB",s:[90,90,86,80],why:"Smartest outside backer of his era."},
+      {pos:"MLB",nm:"Jack Lambert",real:"9× Pro Bowl · 1976 DPOY · 28 INT",s:[82,96,94,86],why:"The snarl of the Steel Curtain."},
+      {pos:"CB",nm:"Mel Blount",real:"57 INT · rules changed for him · HOF",s:[92,90,88,90],why:"So physical the NFL rewrote the book."},
+      {pos:"OL",nm:"Mike Webster",real:"9× Pro Bowl C · 4× SB champ · HOF (leader)",s:[90,93,88,92],why:"Iron Mike — anchored the line."}
+    ],
+    "2000s":[
+      {pos:"S",nm:"Troy Polamalu",real:"32 INT · 2010 DPOY · chaos agent · HOF",s:[90,93,94,90],why:"Blows up plays from anywhere."},
+      {pos:"LB",nm:"James Harrison",real:"2008 DPOY · 84.5 sacks · 100-yd SB pick-6",s:[78,90,84,93],why:"Relentless power off the edge."},
+      {pos:"WR",nm:"Hines Ward",real:"12,083 yds · 85 TD · SB XL MVP",s:[80,90,88,84],why:"Toughest blocking WR; sure hands."},
+      {pos:"QB",nm:"Ben Roethlisberger",real:"64,088 yds · 418 TD · 2× SB champ",s:[88,84,86,72,92],why:"Big Ben extends plays and wins late."}
+    ]
+   },
+   "Ravens":{
+    "2000s":[
+      {pos:"MLB",nm:"Ray Lewis",real:"2× DPOY · 31.5 sacks · 31 INT · the general",s:[86,98,98,90],why:"The defense's brain and hammer."},
+      {pos:"S",nm:"Ed Reed",real:"64 INT · 2004 DPOY · ball magnet · HOF",s:[95,98,82,99],why:"Reads the QB like a script."},
+      {pos:"DL",nm:"Haloti Ngata",real:"5× Pro Bowl · elite run-stuffer (leader)",s:[78,96,97,85],why:"Wrecks the interior run."}
+    ],
+    "2010s":[
+      {pos:"LB",nm:"Terrell Suggs",real:"139 sacks · 2011 DPOY (edge leader)",s:[78,86,82,93],why:"Bends the edge; relentless motor."},
+      {pos:"MLB",nm:"C.J. Mosley",real:"4× Pro Bowl · 9 INT · 3-down LB",s:[88,92,90,86],why:"Modern coverage linebacker."},
+      {pos:"QB",nm:"Joe Flacco",real:"SB XLVII MVP · 11 playoff TD in '12 run",s:[94,80,82,64,90],why:"Cannon arm; elite in one historic January."},
+      {pos:"WR",nm:"Steve Smith Sr.",real:"14,731 yds · feisty all-time route runner",s:[88,90,92,86],why:"Fearless competitor; wins contested balls."}
+    ]
+   },
+   "Browns":{
+    "1980s":[
+      {pos:"QB",nm:"Bernie Kosar",real:"sidearm gunslinger · led 80s Cleveland deep runs",s:[82,86,88,56,86],why:"Cerebral passer; tough as nails."},
+      {pos:"RB",nm:"Kevin Mack",real:"1,000-yd back of the Kardiac-era Cleveland",s:[82,90,82,74],why:"Bruising downhill runner."}
+    ],
+    "1960s_skip":[]
+   },
+   "Bengals":{
+    "2020s":[
+      {pos:"QB",nm:"Joe Burrow",real:"led NFL in TD passes (2024) · SB LVI starter",s:[86,95,93,72,93],why:"Ice in his veins; surgical accuracy."},
+      {pos:"WR",nm:"Ja'Marr Chase",real:"2024 receiving Triple Crown · explosive YAC",s:[96,90,90,96],why:"The most dangerous WR in football today."},
+      {pos:"DL",nm:"Trey Hendrickson",real:"led NFL in sacks (2024) (edge leader)",s:[95,82,84,95],why:"Premier modern edge rusher."}
+    ]
+   }
+  },
+  "East":{
+   "Patriots":{
+    "2000s":[
+      {pos:"QB",nm:"Tom Brady",real:"89,214 yds · 649 TD · 7× SB champ · GOAT",s:[84,94,99,62,99],why:"Clutch gene; reads any defense pre-snap."},
+      {pos:"WR",nm:"Randy Moss",real:"23 TD in 2007 (record) · 15,292 career yds",s:[98,88,86,84],why:"Takes the top off any defense."},
+      {pos:"CB",nm:"Ty Law",real:"53 INT · 3× SB champ · 5× Pro Bowl",s:[90,88,90,84],why:"Physical, ball-hawking shutdown corner."}
+    ],
+    "2010s":[
+      {pos:"QB",nm:"Tom Brady",real:"5,235 yds (2011) · 3 more rings in the 2010s",s:[83,95,99,58,99],why:"Even sharper processor; surgical."},
+      {pos:"DL",nm:"Vince Wilfork",real:"5× Pro Bowl · run-stuffing NT (leader)",s:[70,97,98,82],why:"Two-gap anchor; eats the run."},
+      {pos:"S",nm:"Devin McCourty",real:"35 INT · 3× SB champ · deep-middle eraser",s:[90,93,84,88],why:"Quarterbacks the back end."}
+    ]
+   },
+   "Bills":{
+    "1990s":[
+      {pos:"QB",nm:"Jim Kelly",real:"35,467 yds · 4 straight SB appearances · HOF",s:[88,88,90,66,88],why:"Master of the no-huddle K-Gun."},
+      {pos:"RB",nm:"Thurman Thomas",real:"12,074 yds · 1991 MVP · dual-threat HOF",s:[88,82,92,92],why:"Complete back; catches everything."},
+      {pos:"DL",nm:"Bruce Smith",real:"200 sacks (NFL record) · 2× DPOY (leader)",s:[97,90,90,97],why:"All-time sack king; relentless."}
+    ],
+    "2020s":[
+      {pos:"QB",nm:"Josh Allen",real:"2024 NFL MVP · dual-threat force",s:[99,86,88,94,94],why:"Cannon arm and a freight-train runner."},
+      {pos:"S",nm:"Micah Hyde",real:"steady ball-hawk of the Buffalo back end",s:[88,88,84,88],why:"Smart, reliable centerfielder."}
+    ]
+   },
+   "Dolphins":{
+    "1980s":[
+      {pos:"QB",nm:"Dan Marino",real:"61,361 yds · 420 TD · 5,084 yds in 1984 · HOF",s:[99,94,92,54,90],why:"Quickest release ever; pure passer."},
+      {pos:"WR",nm:"Mark Clayton",real:"18 TD catches (1984) with Marino",s:[90,84,86,84],why:"Deep-ball finisher in the Marino attack."}
+    ],
+    "2020s":[
+      {pos:"WR",nm:"Tyreek Hill",real:"1,799 yds (2023) · Cheetah · fastest in NFL",s:[99,84,82,95],why:"A constant deep threat; pure speed."},
+      {pos:"CB",nm:"Jalen Ramsey",real:"shutdown press corner · multiple All-Pro",s:[95,90,88,86],why:"Erases a side of the field."}
+    ]
+   },
+   "Jets":{
+    "2000s":[
+      {pos:"CB",nm:"Darrelle Revis",real:"Revis Island · 29 INT · 4× All-Pro",s:[98,90,88,82],why:"Erased No.1 receivers in single coverage."},
+      {pos:"RB",nm:"Curtis Martin",real:"14,101 yds · 2004 rushing title · HOF",s:[86,86,92,84],why:"Steady, durable, always productive."}
+    ]
+   }
+  },
+  "South":{
+   "Colts":{
+    "2000s":[
+      {pos:"QB",nm:"Peyton Manning",real:"71,940 yds · 539 TD · 5× MVP",s:[88,95,99,58,92],why:"A coach on the field; record processor."},
+      {pos:"WR",nm:"Marvin Harrison",real:"143 catches (2002, record) · 14,580 yds · HOF",s:[88,95,97,82],why:"Telepathic with Peyton."},
+      {pos:"DL",nm:"Dwight Freeney",real:"125.5 sacks · the spin move (edge leader)",s:[96,78,82,94],why:"Unstoppable spin off the edge."},
+      {pos:"OL",nm:"Jeff Saturday",real:"6× Pro Bowl C · ran the protections (leader)",s:[88,88,84,88],why:"Brainy center; Peyton's protector."}
+    ]
+   },
+   "Titans":{
+    "2010s":[
+      {pos:"RB",nm:"Derrick Henry",real:"2,027 yds (2020) · King Henry · power back",s:[88,99,84,64],why:"A 247-lb avalanche who gets stronger late."},
+      {pos:"OL",nm:"Taylor Lewan",real:"3× Pro Bowl LT · road-grading tackle (leader)",s:[90,92,90,90],why:"Nasty in the run game; solid pass set."}
+    ],
+    "1990s":[
+      {pos:"QB",nm:"Steve McNair",real:"co-MVP 2003 · Air McNair · tough dual-threat",s:[90,82,86,86,92],why:"Fearless runner and clutch passer."},
+      {pos:"RB",nm:"Eddie George",real:"10,441 yds · workhorse Pro Bowl back",s:[84,92,84,78],why:"Durable bell-cow runner."}
+    ]
+   },
+   "Texans":{
+    "2010s":[
+      {pos:"DL",nm:"J.J. Watt",real:"3× DPOY · bats passes, wrecks runs (leader)",s:[95,96,93,98],why:"Most disruptive defender of the decade."},
+      {pos:"WR",nm:"Andre Johnson",real:"14,185 yds · physical No.1 · HOF",s:[88,94,92,84],why:"Big, strong, dependable target."}
+    ]
+   },
+   "Jaguars":{
+    "1990s":[
+      {pos:"QB",nm:"Mark Brunell",real:"mobile lefty · led expansion Jags to AFC titles",s:[86,82,82,84,84],why:"Slippery scrambler; quick release."},
+      {pos:"RB",nm:"Fred Taylor",real:"11,695 yds · explosive big-play back",s:[92,84,86,78],why:"Home-run speed at the position."}
+    ]
+   }
+  },
+  "West":{
+   "Broncos":{
+    "1970s":[
+      {pos:"LB",nm:"Randy Gradishar",real:"7× Pro Bowl · 1978 DPOY · Orange Crush leader",s:[84,95,86,80],why:"Heart of the Orange Crush defense."},
+      {pos:"S",nm:"Billy Thompson",real:"3× Pro Bowl · 40 INT · Orange Crush safety",s:[86,88,90,86],why:"Ball-hawking centerfielder of the 70s."}
+    ],
+    "1990s":[
+      {pos:"QB",nm:"John Elway",real:"51,475 yds · 1987 MVP · 2× SB champ · HOF",s:[97,86,90,86,96],why:"Rocket arm and an iron will."},
+      {pos:"RB",nm:"Terrell Davis",real:"2,008 yds (1998) · SB XXXII MVP",s:[88,88,94,80],why:"Explosive in the zone scheme."},
+      {pos:"OL",nm:"Gary Zimmerman",real:"HOF LT · anchored Elway's protection (leader)",s:[95,90,90,93],why:"Technician at left tackle."}
+    ],
+    "2010s":[
+      {pos:"LB",nm:"Von Miller",real:"SB 50 MVP · bend-the-edge artist (leader)",s:[80,84,90,95],why:"Premier edge bender with a ring."},
+      {pos:"CB",nm:"Aqib Talib",real:"35 INT · physical No Fly Zone corner",s:[92,88,88,84],why:"Press corner who takes the ball away."},
+      {pos:"S",nm:"T.J. Ward",real:"hard-hitting box safety of the No Fly Zone",s:[80,82,94,80],why:"Brings the thump in the secondary."},
+      {pos:"QB",nm:"Peyton Manning",real:"Denver years · record 55 TD in 2013 · SB 50 champ",s:[84,94,99,52,90],why:"Surgical, record-setting in Denver."}
+    ]
+   },
+   "Raiders":{
+    "1970s":[
+      {pos:"WR",nm:"Cliff Branch",real:"deep threat · 3× SB champ · all-decade speed",s:[97,82,86,88],why:"Track speed; vertical nightmare."},
+      {pos:"CB",nm:"Willie Brown",real:"54 INT · bump-and-run pioneer · HOF",s:[92,86,90,86],why:"Defined the press corner."},
+      {pos:"QB",nm:"Ken Stabler",real:"1974 MVP · Snake · clutch lefty gunslinger",s:[86,86,88,62,92],why:"Cool, accurate, and fearless late."},
+      {pos:"OL",nm:"Art Shell",real:"8× Pro Bowl LT · HOF anchor (leader)",s:[94,92,92,94],why:"Cornerstone of the Las Vegas line."}
+    ],
+    "1980s":[
+      {pos:"RB",nm:"Marcus Allen",real:"SB XVIII MVP · 1985 MVP · 12,243 yds · HOF",s:[86,86,96,90],why:"Vision and cutback genius."},
+      {pos:"DL",nm:"Howie Long",real:"84 sacks · 8× Pro Bowl (edge leader)",s:[90,90,92,90],why:"Powerful, technically sound bookend."},
+      {pos:"CB",nm:"Mike Haynes",real:"46 INT · shutdown HOF corner",s:[94,88,88,84],why:"Smooth, elite man-coverage corner."},
+      {pos:"S",nm:"Vann McElroy",real:"2× Pro Bowl ball-hawking Las Vegas safety",s:[84,86,86,86],why:"Rangy deep defender."}
+    ]
+   },
+   "Chiefs":{
+    "1990s":[
+      {pos:"LB",nm:"Derrick Thomas",real:"126.5 sacks · speed-rush legend · HOF (leader)",s:[74,84,93,98],why:"Once had 7 sacks in a game."},
+      {pos:"DL",nm:"Neil Smith",real:"104.5 sacks · 6× Pro Bowl bookend",s:[92,86,88,92],why:"Edge complement to Derrick Thomas."}
+    ],
+    "2020s":[
+      {pos:"QB",nm:"Patrick Mahomes",real:"3× SB champ · 2× MVP · no-look magic",s:[96,93,94,88,98],why:"Bends every game to his will."},
+      {pos:"WR",nm:"Tyreek Hill",real:"Kansas City years · Cheetah speed stretched the field",s:[99,82,80,94],why:"Fastest man in football."},
+      {pos:"DL",nm:"Chris Jones",real:"perennial All-Pro interior rusher (leader)",s:[94,90,94,90],why:"Collapses the pocket from inside."}
+    ]
+   },
+   "Chargers":{
+    "1970s":[
+      {pos:"WR",nm:"Charlie Joiner",real:"HOF possession WR · Air Coryell craftsman",s:[84,92,94,82],why:"Precise routes in a pass-first attack."}
+    ],
+    "1980s":[
+      {pos:"QB",nm:"Dan Fouts",real:"43,040 yds · Air Coryell · HOF gunslinger",s:[92,90,90,54,86],why:"Engine of the most prolific 80s passing game."},
+      {pos:"WR",nm:"Kellen Winslow",real:"revolutionary receiving TE · HOF",s:[84,92,88,84],why:"Mismatch weapon who changed the position."}
+    ],
+    "2000s":[
+      {pos:"RB",nm:"LaDainian Tomlinson",real:"28 TD (2006, record) · 2006 MVP · HOF",s:[89,84,93,90],why:"TD machine; elusive and catches it."},
+      {pos:"S",nm:"Rodney Harrison",real:"hard-hitting safety · 34 INT · 30.5 sacks",s:[82,82,97,84],why:"Enforcer who blitzes and covers."},
+      {pos:"DL",nm:"Shawne Merriman",real:"39.5 sacks in first 3 yrs · Lights Out (leader)",s:[92,82,86,92],why:"Explosive early-career edge terror."}
+    ]
+   }
+  }
+ },
+ "NFC":{
+  "East":{
+   "Cowboys":{
+    "1970s":[
+      {pos:"QB",nm:"Roger Staubach",real:"22,700 yds · 153 TD · 2× SB champ · HOF",s:[86,84,92,82,96],why:"Captain Comeback — clutch in January."},
+      {pos:"RB",nm:"Tony Dorsett",real:"12,739 yds · 4.3 avg · 77 TD · HOF",s:[94,76,90,80],why:"Home-run speed; flips field position."},
+      {pos:"DL",nm:"Bob Lilly",real:"11× Pro Bowl · all-decade · HOF (leader)",s:[88,97,96,90],why:"Mr. Cowboy — immovable interior."},
+      {pos:"S",nm:"Cliff Harris",real:"6× Pro Bowl · 29 INT · all-decade safety",s:[86,90,95,84],why:"Captain Crash — range plus fear."}
+    ],
+    "1990s":[
+      {pos:"QB",nm:"Troy Aikman",real:"32,942 yds · 165 TD · 3× SB champ · HOF",s:[85,93,92,64,96],why:"Precision passer; January machine."},
+      {pos:"RB",nm:"Emmitt Smith",real:"18,355 yds (record) · 164 TD · SB MVP",s:[84,87,96,82],why:"All-time rushing king; patient, durable."},
+      {pos:"WR",nm:"Michael Irvin",real:"11,904 yds · 65 TD · 1,523 in '91 · HOF",s:[82,90,93,80],why:"The Playmaker — owns the middle."},
+      {pos:"OL",nm:"Larry Allen",real:"7× All-Pro · benched 700+ · HOF (leader)",s:[88,99,99,94],why:"The Beast — paved Emmitt's road."},
+      {pos:"CB",nm:"Deion Sanders",real:"Prime Time · 53 INT · best cover corner ever",s:[99,98,95,60],why:"One-man no-fly zone."}
+    ],
+    "2010s":[
+      {pos:"OL",nm:"Tyron Smith",real:"8× Pro Bowl · elite LT (leader)",s:[97,90,92,95],why:"Mirror-image pass protector."},
+      {pos:"RB",nm:"DeMarco Murray",real:"led NFL in rushing (2014) · 1,845 yds",s:[86,86,90,82],why:"Bell-cow behind a great line."}
+    ]
+   },
+   "Giants":{
+    "1980s":[
+      {pos:"LB",nm:"Lawrence Taylor",real:"132.5 sacks · 1986 MVP · 3× DPOY (leader)",s:[78,92,94,99],why:"Redefined defense; unblockable."},
+      {pos:"MLB",nm:"Harry Carson",real:"9× Pro Bowl · run-stopping captain · HOF",s:[76,95,92,82],why:"Thumping presence beside LT."}
+    ],
+    "2000s":[
+      {pos:"DL",nm:"Michael Strahan",real:"141.5 sacks · 22.5 in '01 (record, leader)",s:[96,92,90,94],why:"Sack-record-holding bookend."},
+      {pos:"QB",nm:"Eli Manning",real:"57,023 yds · 2× SB MVP over New England",s:[84,82,86,58,93],why:"Beat the GOAT twice in February."}
+    ]
+   },
+   "Eagles":{
+    "1990s":[
+      {pos:"DL",nm:"Reggie White",real:"198 sacks · 2× DPOY · Minister of Defense (leader)",s:[98,94,98,96],why:"Most complete lineman ever."},
+      {pos:"S",nm:"Brian Dawkins",real:"37 INT · 26 sacks · Weapon X · HOF",s:[88,90,96,86],why:"Safety, blitzer, centerfielder in one."}
+    ],
+    "2020s":[
+      {pos:"QB",nm:"Jalen Hurts",real:"SB LIX MVP · dual-threat · tush-push king",s:[88,84,86,92,92],why:"Runs and throws; wins the big one."},
+      {pos:"OL",nm:"Jason Kelce",real:"6× All-Pro C · best center of his era (leader)",s:[90,97,86,90],why:"Athletic, brilliant, run-game engine."},
+      {pos:"WR",nm:"A.J. Brown",real:"physical 1,400-yd alpha receiver",s:[88,90,90,90],why:"Wins contested balls; big YAC."}
+    ]
+   },
+   "Commanders":{
+    "1980s":[
+      {pos:"RB",nm:"John Riggins",real:"SB XVII MVP · 104 rush TD · bruising HOF back",s:[78,96,86,70],why:"Punishing short-yardage hammer."},
+      {pos:"OL",nm:"Joe Jacoby",real:"anchor of The Hogs · 4× Pro Bowl (leader)",s:[90,95,93,92],why:"Cornerstone of a legendary line."}
+    ]
+   }
+  },
+  "North":{
+   "Packers":{
+    "1990s":[
+      {pos:"QB",nm:"Brett Favre",real:"3× MVP · gunslinger · SB XXXI champ",s:[97,84,88,80,90],why:"Cannon arm and fearless."},
+      {pos:"DL",nm:"Reggie White",real:"Green Bay years · still the Minister (leader)",s:[97,93,98,95],why:"Dominant force; brought GB a ring."}
+    ],
+    "2010s":[
+      {pos:"QB",nm:"Aaron Rodgers",real:"4× MVP · 105.9 rtg · pinpoint accuracy",s:[93,96,95,84,90],why:"Best deep accuracy; elite improviser."},
+      {pos:"WR",nm:"Davante Adams",real:"release artist · perennial All-Pro",s:[84,92,98,82],why:"Gets open against anyone."},
+      {pos:"LB",nm:"Clay Matthews",real:"91.5 sacks · 6× Pro Bowl (edge leader)",s:[80,86,88,92],why:"Explosive first step off the edge."}
+    ]
+   },
+   "Bears":{
+    "1980s":[
+      {pos:"RB",nm:"Walter Payton",real:"16,726 yds · 110 TD · Sweetness · HOF",s:[88,92,96,88],why:"Most complete back ever."},
+      {pos:"MLB",nm:"Mike Singletary",real:"10× Pro Bowl · 2× DPOY · 46-defense eyes",s:[80,96,97,84],why:"Samurai Mike — diagnose & detonate."},
+      {pos:"DL",nm:"Richard Dent",real:"137.5 sacks · SB XX MVP (edge leader)",s:[95,84,86,94],why:"The '85 D's closer."},
+      {pos:"S",nm:"Gary Fencik",real:"38 INT · heart of the 46 secondary",s:[84,86,92,86],why:"Ball-hawk behind a historic front."}
+    ],
+    "2000s":[
+      {pos:"MLB",nm:"Brian Urlacher",real:"8× Pro Bowl · 2005 DPOY · 22 INT",s:[90,90,92,95],why:"Safety range in a LB's body."},
+      {pos:"CB",nm:"Charles Tillman",real:"38 INT · 44 FF · the Peanut Punch",s:[88,84,90,88],why:"Strips the ball like nobody else."},
+      {pos:"LB",nm:"Lance Briggs",real:"7× Pro Bowl · 16 INT · tackling machine",s:[84,93,86,78],why:"Sideline-to-sideline weak-side LB."}
+    ]
+   },
+   "Vikings":{
+    "1970s":[
+      {pos:"DL",nm:"Alan Page",real:"1971 MVP · 148.5 sacks · Purple People Eater (leader)",s:[96,88,86,98],why:"First defender to win MVP."},
+      {pos:"DL",nm:"Carl Eller",real:"133.5 sacks · 6× Pro Bowl (edge leader)",s:[94,90,92,90],why:"Bookend of a legendary front."}
+    ],
+    "2000s":[
+      {pos:"RB",nm:"Adrian Peterson",real:"14,918 yds · 2012 MVP · 2,097 in a season",s:[93,93,88,72],why:"All Day — explosive, breaks tackles."},
+      {pos:"WR",nm:"Randy Moss",real:"rookie-record 17 TD · vertical nightmare",s:[98,86,86,84],why:"Straight cash; instant deep threat."}
+    ]
+   },
+   "Lions":{
+    "1990s":[
+      {pos:"RB",nm:"Barry Sanders",real:"15,269 yds · 99 TD · 1997 co-MVP · HOF",s:[95,82,99,80],why:"Ankle-breaker; nothing into everything."},
+      {pos:"WR",nm:"Herman Moore",real:"123 catches (1995, then a record)",s:[84,92,84,80],why:"Big possession weapon, great hands."}
+    ],
+    "2010s":[
+      {pos:"WR",nm:"Calvin Johnson",real:"1,964 yds (2012, record) · Megatron · HOF",s:[95,92,84,90],why:"6-5 nightmare with track speed."},
+      {pos:"DL",nm:"Ndamukong Suh",real:"5× Pro Bowl · dominant interior (leader)",s:[90,93,98,86],why:"Explosive, powerful, wrecks pockets."}
+    ]
+   }
+  },
+  "South":{
+   "Saints":{
+    "2000s":[
+      {pos:"QB",nm:"Drew Brees",real:"80,358 yds · 571 TD · SB XLIV MVP",s:[86,98,95,58,92],why:"Pinpoint accuracy; record-setter."},
+      {pos:"WR",nm:"Marques Colston",real:"quiet 9,759-yd big-bodied possession WR",s:[80,90,86,82],why:"Reliable chain-mover for Brees."}
+    ],
+    "2010s":[
+      {pos:"RB",nm:"Alvin Kamara",real:"explosive dual-threat · OROY 2017",s:[88,80,86,96],why:"Receiving back; mismatch nightmare."},
+      {pos:"OL",nm:"Max Unger",real:"Pro Bowl C · anchored the line (leader)",s:[88,88,84,88],why:"Steady interior pivot."}
+    ]
+   },
+   "Buccaneers":{
+    "2000s":[
+      {pos:"S",nm:"John Lynch",real:"hard-hitting Tampa-2 enforcer · 9× Pro Bowl",s:[84,84,96,82],why:"Intimidating box safety."},
+      {pos:"DL",nm:"Warren Sapp",real:"96.5 sacks · 1999 DPOY · 3-tech (leader)",s:[94,90,92,92],why:"Penetrating interior disruptor."},
+      {pos:"MLB",nm:"Derrick Brooks",real:"25 INT · 2002 DPOY · Tampa-2 prototype",s:[92,94,94,92],why:"Coverage savant; ran the defense."}
+    ],
+    "2020s":[
+      {pos:"QB",nm:"Tom Brady",real:"Bucs years · SB LV champ at 43",s:[80,93,99,52,99],why:"Won a ring in his first year in Tampa."}
+    ]
+   },
+   "Falcons":{
+    "2010s":[
+      {pos:"WR",nm:"Julio Jones",real:"1,871 yds (2015) · physical freak",s:[94,90,90,88],why:"Size, speed, and hands all elite."},
+      {pos:"QB",nm:"Matt Ryan",real:"2016 MVP · 62,792 career yds",s:[86,90,90,60,86],why:"Smooth pocket passer; MVP peak."}
+    ]
+   },
+   "Panthers":{
+    "2010s":[
+      {pos:"QB",nm:"Cam Newton",real:"2015 MVP · dual-threat · 75 rush TD",s:[94,80,84,94,88],why:"Bulldozing runner with a big arm."},
+      {pos:"MLB",nm:"Luke Kuechly",real:"2013 DPOY · coverage savant · 18 INT",s:[94,93,97,88],why:"Reads QBs' eyes for picks everywhere."}
+    ]
+   }
+  },
+  "West":{
+   "49ers":{
+    "1970s":[
+      {pos:"WR",nm:"Gene Washington",real:"4× Pro Bowl San Francisco deep threat of the 70s",s:[92,84,86,84],why:"Vertical speed for the early San Francisco offense."},
+      {pos:"S",nm:"Jimmy Johnson",real:"San Francisco HOF corner/safety · shutdown cover man",s:[94,88,86,84],why:"Lockdown defender of the 70s San Francisco defense."}
+    ],
+    "1980s":[
+      {pos:"QB",nm:"Joe Montana",real:"40,551 yds · 273 TD · 4× SB champ",s:[85,95,96,74,99],why:"Cool Joe — gold standard for clutch."},
+      {pos:"WR",nm:"Jerry Rice",real:"22,895 yds (record) · 197 TD · GOAT WR",s:[86,98,99,90],why:"Best ever — routes, hands, will."},
+      {pos:"S",nm:"Ronnie Lott",real:"63 INT · 10× Pro Bowl · the hitter's hitter",s:[88,88,99,90],why:"Sets the defense's tone."},
+      {pos:"OL",nm:"Randy Cross",real:"3× Pro Bowl · 3× SB champ G/C (leader)",s:[88,90,86,88],why:"Smart, mobile West Coast anchor."}
+    ],
+    "1990s":[
+      {pos:"QB",nm:"Steve Young",real:"33,124 yds · 232 TD · 96.8 rtg · SB MVP",s:[86,92,90,90,90],why:"Lefty dual-threat; devastating."},
+      {pos:"DL",nm:"Charles Haley",real:"100.5 sacks · 5× SB champ (edge leader)",s:[94,86,88,93],why:"Only player with 5 rings."},
+      {pos:"CB",nm:"Eric Davis",real:"San Francisco corner · key piece of the '94 SB defense",s:[88,90,84,82],why:"Physical cover man on a title team."},
+      {pos:"RB",nm:"Ricky Watters",real:"5× Pro Bowl · explosive dual-threat back",s:[88,84,88,88],why:"Big-play runner who catches it too."}
+    ],
+    "2000s":[
+      {pos:"LB",nm:"Patrick Willis",real:"7× Pro Bowl · 5× All-Pro · tackling machine",s:[88,98,92,80],why:"Sideline-to-sideline modern MLB."},
+      {pos:"OL",nm:"Joe Staley",real:"6× Pro Bowl LT · franchise cornerstone (leader)",s:[94,90,88,92],why:"Athletic, durable left tackle."}
+    ]
+   },
+   "Rams":{
+    "2010s":[
+      {pos:"DL",nm:"Aaron Donald",real:"3× DPOY · unblockable interior (leader)",s:[99,93,96,97],why:"Best DT of his generation."},
+      {pos:"RB",nm:"Todd Gurley",real:"2017 OPOY · explosive every-down back",s:[88,86,88,84],why:"Big-play threat as runner and receiver."}
+    ],
+    "1970s":[
+      {pos:"DL",nm:"Jack Youngblood",real:"played a SB on a broken leg · HOF (edge leader)",s:[92,90,88,96],why:"Toughness and relentless pursuit."},
+      {pos:"QB",nm:"Roman Gabriel",real:"1969 MVP · big-armed pocket passer",s:[90,82,84,60,82],why:"Prototype size and arm strength."},
+      {pos:"RB",nm:"Lawrence McCutcheon",real:"5× Pro Bowl Los Angeles workhorse of the 70s",s:[82,84,86,76],why:"Featured back of a strong run game."}
+    ]
+   },
+   "Seahawks":{
+    "1990s":[
+      {pos:"OL",nm:"Walter Jones",real:"9× Pro Bowl LT · all-time great (leader)",s:[98,92,94,96],why:"Maybe the best pass-protecting tackle ever."},
+      {pos:"RB",nm:"Chris Warren",real:"3× Pro Bowl Seattle runner of the 90s",s:[86,84,84,80],why:"Featured back with breakaway ability."}
+    ],
+    "2010s":[
+      {pos:"CB",nm:"Richard Sherman",real:"37 INT · LOB anchor · 3× All-Pro",s:[96,88,92,82],why:"Press-man eraser; tilts the field."},
+      {pos:"S",nm:"Earl Thomas",real:"30 INT · deep middle of the Legion of Boom",s:[93,97,86,90],why:"Centerfield range shrinks the field."},
+      {pos:"S",nm:"Kam Chancellor",real:"the enforcer · box safety · 3× Pro Bowl",s:[82,80,99,80],why:"Pure intimidation in the box."},
+      {pos:"RB",nm:"Marshawn Lynch",real:"Beast Mode · 10,413 yds · tackle-breaker",s:[84,97,86,76],why:"Refuses to go down on first contact."}
+    ]
+   },
+   "Cardinals":{
+    "2000s":[
+      {pos:"WR",nm:"Larry Fitzgerald",real:"17,492 yds · best hands in the game · HOF",s:[80,99,92,80],why:"Catch radius from another planet."},
+      {pos:"QB",nm:"Kurt Warner",real:"2× MVP · SB XXXIV MVP · Greatest Show",s:[86,96,92,54,94],why:"Lightning release; pure accuracy."},
+      {pos:"WR",nm:"Anquan Boldin",real:"physical possession WR · 1,000+ yd rookie year",s:[82,90,86,86],why:"Bruising complement; tough over the middle."},
+      {pos:"DL",nm:"Darnell Dockett",real:"3× Pro Bowl · 3 sacks in SB XLIII (leader)",s:[88,90,90,88],why:"Disruptive interior force."}
+    ]
+   }
+  }
+ }
+};
+
+/* ============================================================
+   EXTRA — a deep tier of additional REAL players (HOFers / All-Pros)
+   to widen every position and make 17-0 genuinely hard. Each entry
+   is tagged by team + era; merged into the division pools below.
+   Format: {team,era,pos,nm,real,s,why}
+   ============================================================ */
+const EXTRA=[
+ // ---------- QUARTERBACKS ----------
+ {team:"Dolphins",era:"2020s",pos:"QB",nm:"Tua Tagovailoa",real:"led NFL in passing yds (2023) · accurate timing passer",s:[82,92,86,72,82],why:"Quick, precise rhythm thrower."},
+ {team:"Saints",era:"2000s",pos:"QB",nm:"Drew Brees",real:"80,358 yds · 571 TD · SB XLIV MVP",s:[84,98,95,58,92],why:"Pinpoint accuracy; a record-setting machine."},
+ {team:"Chargers",era:"2000s",pos:"QB",nm:"Philip Rivers",real:"63,440 yds · 421 TD · 8× Pro Bowl gunslinger",s:[88,90,90,52,84],why:"Fearless downfield passer with a quick release."},
+ {team:"Vikings",era:"1970s",pos:"QB",nm:"Fran Tarkenton",real:"1975 MVP · scrambling pioneer · 47,003 yds",s:[84,86,90,90,84],why:"Original mobile QB; extended every play."},
+ {team:"Oilers_skip",era:"1990s",pos:"QB",nm:"",real:"",s:[],why:""},
+ {team:"Titans",era:"1990s",pos:"QB",nm:"Warren Moon",real:"49,325 NFL yds · 9× Pro Bowl · cannon arm",s:[95,86,88,76,84],why:"Big arm, prolific run-and-shoot passer."},
+ {team:"Seahawks",era:"2010s",pos:"QB",nm:"Russell Wilson",real:"SB XLVIII champ · dual-threat · 100.5 rtg",s:[88,88,86,90,90],why:"Escapes pressure, deadly off-script."},
+ {team:"Packers",era:"2020s",pos:"QB",nm:"Jordan Love",real:"4,000+ yd breakout passer · big arm",s:[90,86,84,80,82],why:"Live arm, rising star at the position."},
+ {team:"Lions",era:"2020s",pos:"QB",nm:"Jared Goff",real:"led a high-powered Detroit offense · 4,500+ yds",s:[86,90,86,56,84],why:"Rhythm passer in a loaded attack."},
+ {team:"Bengals",era:"1980s",pos:"QB",nm:"Ken Anderson",real:"1981 MVP · 4× passing-title efficiency king",s:[84,94,90,68,86],why:"Accurate, cerebral West Coast pioneer."},
+ {team:"49ers",era:"2010s",pos:"QB",nm:"Colin Kaepernick",real:"SB XLVII starter · explosive read-option threat",s:[92,80,80,94,82],why:"Dynamic dual-threat in his prime."},
+ // ---------- RUNNING BACKS ----------
+ {team:"Rams",era:"1980s",pos:"RB",nm:"Eric Dickerson",real:"2,105 yds in 1984 (record) · HOF",s:[94,86,90,72],why:"Upright glider with breakaway speed."},
+ {team:"Oilers2_skip",era:"1980s",pos:"RB",nm:"",real:"",s:[],why:""},
+ {team:"Titans",era:"1980s",pos:"RB",nm:"Earl Campbell",real:"1979 MVP · punishing HOF power back",s:[84,98,84,64],why:"A bruising, tackle-breaking force."},
+ {team:"Bills",era:"1970s",pos:"RB",nm:"O.J. Simpson",real:"2,003 yds in 1973 · 5× rushing champ",s:[94,84,88,72],why:"Explosive, record-setting open-field runner."},
+ {team:"Bears",era:"1960s_skip",pos:"RB",nm:"",real:"",s:[],why:""},
+ {team:"Colts",era:"2000s",pos:"RB",nm:"Edgerrin James",real:"12,246 yds · 2× rushing champ · HOF",s:[86,86,90,88],why:"Patient zone runner, great hands."},
+ {team:"Rams",era:"1990s",pos:"RB",nm:"Marshall Faulk",real:"2,000+ total yds seasons · 2000 MVP · HOF",s:[90,80,90,97],why:"The ultimate dual-threat back."},
+ {team:"Raiders",era:"1980s",pos:"RB",nm:"Bo Jackson",real:"otherworldly speed/power · 221-yd games",s:[97,96,84,74],why:"A physical freak; unstoppable when healthy."},
+ {team:"49ers",era:"2010s",pos:"RB",nm:"Frank Gore",real:"16,000 yds · top-5 all-time rusher",s:[82,86,92,82],why:"Durable, decisive, endlessly productive."},
+ {team:"Cowboys",era:"2010s",pos:"RB",nm:"Ezekiel Elliott",real:"2× rushing champ · bell-cow workhorse",s:[86,90,88,82],why:"Three-down back behind a great line."},
+ {team:"Vikings",era:"2020s",pos:"RB",nm:"Dalvin Cook",real:"4× Pro Bowl · explosive every-down back",s:[90,84,86,86],why:"Big-play threat as runner and receiver."},
+ {team:"Browns",era:"2020s",pos:"RB",nm:"Nick Chubb",real:"power-and-burst · multiple Pro Bowls",s:[88,94,90,72],why:"One of the hardest backs to bring down."},
+ {team:"Giants",era:"2020s",pos:"RB",nm:"Saquon Barkley",real:"2,000-yd season · explosive home-run hitter",s:[94,88,88,90],why:"Game-breaking speed and vision."},
+ {team:"Lions",era:"1960s_skip",pos:"RB",nm:"",real:"",s:[],why:""},
+ // ---------- WIDE RECEIVERS ----------
+ {team:"Seahawks",era:"1980s",pos:"WR",nm:"Steve Largent",real:"100 TD · HOF · precise route technician",s:[82,94,96,80],why:"Sure-handed master of separation."},
+ {team:"Vikings",era:"1990s",pos:"WR",nm:"Cris Carter",real:"1,101 catches · 130 TD · HOF hands",s:[80,98,94,80],why:"All he did was catch touchdowns."},
+ {team:"Colts",era:"2000s",pos:"WR",nm:"Reggie Wayne",real:"14,345 yds · crisp routes · 6× Pro Bowl",s:[84,92,94,82],why:"Reliable No.1 with elite routes."},
+ {team:"Rams",era:"2000s",pos:"WR",nm:"Torry Holt",real:"13,382 yds · Greatest Show on Turf",s:[92,90,92,88],why:"Speed and polish; deep-strike weapon."},
+ {team:"Rams",era:"1990s",pos:"WR",nm:"Isaac Bruce",real:"15,208 yds · HOF deep threat",s:[90,90,92,84],why:"Smooth strider who stretched the field."},
+ {team:"Chargers",era:"1960s_skip",pos:"WR",nm:"",real:"",s:[],why:""},
+ {team:"Saints",era:"2010s",pos:"WR",nm:"Michael Thomas",real:"149 catches in 2019 (record)",s:[82,96,94,82],why:"Unstoppable possession machine."},
+ {team:"Texans",era:"2010s",pos:"WR",nm:"DeAndre Hopkins",real:"contested-catch king · multiple All-Pro",s:[86,98,92,82],why:"Best hands and body control of his era."},
+ {team:"Falcons",era:"2010s",pos:"WR",nm:"Roddy White",real:"10,863 yds · steady 4× Pro Bowl target",s:[86,90,88,84],why:"Consistent, physical possession receiver."},
+ {team:"Bengals",era:"2000s",pos:"WR",nm:"Chad Johnson",real:"6× Pro Bowl · electric route runner",s:[90,86,92,88],why:"Flashy separator who could take the top off."},
+ {team:"Cardinals",era:"2010s",pos:"WR",nm:"Larry Fitzgerald",real:"still elite into the 2010s · best hands ever",s:[78,99,92,80],why:"Catch radius from another planet."},
+ {team:"Packers",era:"1990s",pos:"WR",nm:"Sterling Sharpe",real:"dominant before injury · 595 catches in 7 yrs",s:[86,92,90,84],why:"Unstoppable in his short, brilliant peak."},
+ {team:"Cowboys",era:"2020s",pos:"WR",nm:"CeeDee Lamb",real:"1,749 yds (2023) · do-it-all alpha",s:[90,92,92,90],why:"Separation, hands, and YAC all elite."},
+ {team:"Dolphins",era:"1980s",pos:"WR",nm:"Mark Duper",real:"deep-threat half of the Marks Brothers",s:[94,84,84,84],why:"Vertical speed in the Marino attack."},
+ // ---------- OFFENSIVE LINE (unit leaders) ----------
+ {team:"Packers",era:"1960s_skip",pos:"OL",nm:"",real:"",s:[],why:""},
+ {team:"Raiders",era:"1970s",pos:"OL",nm:"Gene Upshaw",real:"7× Pro Bowl G · HOF · pulling guard (leader)",s:[90,95,92,92],why:"Led the Raiders' famed power sweeps."},
+ {team:"Patriots",era:"1970s",pos:"OL",nm:"John Hannah",real:"greatest guard ever · 9× All-Pro (leader)",s:[92,99,97,94],why:"Mauling, athletic — the gold standard at guard."},
+ {team:"Rams",era:"2000s",pos:"OL",nm:"Orlando Pace",real:"HOF LT · 7× Pro Bowl · pancake king (leader)",s:[97,92,93,96],why:"Protected the Greatest Show's blind side."},
+ {team:"Saints",era:"1990s",pos:"OL",nm:"Willie Roaf",real:"11× Pro Bowl LT · HOF (leader)",s:[96,94,92,95],why:"Dominant, durable franchise tackle."},
+ {team:"Titans",era:"1990s",pos:"OL",nm:"Bruce Matthews",real:"14× Pro Bowl · every line spot · HOF (leader)",s:[93,93,90,92],why:"Positional versatility at a HOF level."},
+ {team:"Commanders",era:"1980s",pos:"OL",nm:"Russ Grimm",real:"anchor of The Hogs · HOF guard (leader)",s:[88,95,92,90],why:"Cornerstone of a legendary line."},
+ {team:"Browns",era:"1980s",pos:"OL",nm:"Joe DeLamielleure_skip",real:"",s:[],why:""},
+ {team:"Steelers",era:"2010s",pos:"OL",nm:"Maurkice Pouncey",real:"9× Pro Bowl center (leader)",s:[90,90,88,90],why:"Athletic, smart pivot of the line."},
+ {team:"Eagles",era:"2010s",pos:"OL",nm:"Jason Peters",real:"9× Pro Bowl LT · dominant anchor (leader)",s:[94,92,93,92],why:"Powerful, long-time elite tackle."},
+ {team:"Lions",era:"1990s",pos:"OL",nm:"Lomas Brown",real:"7× Pro Bowl LT · cleared Barry's lanes (leader)",s:[92,90,88,90],why:"Sprung Barry Sanders for years."},
+ {team:"Bears",era:"2010s",pos:"OL",nm:"Kyle Long",real:"3× Pro Bowl versatile lineman (leader)",s:[88,90,90,86],why:"Athletic, nasty interior blocker."},
+ // ---------- DEFENSIVE LINE (unit leaders) ----------
+ {team:"Rams",era:"1960s_skip",pos:"DL",nm:"",real:"",s:[],why:""},
+ {team:"Chargers",era:"1970s",pos:"DL",nm:"Fred Dean",real:"HOF pass rusher · explosive get-off (leader)",s:[95,80,84,94],why:"Premier speed rusher of his time."},
+ {team:"Vikings",era:"1990s",pos:"DL",nm:"John Randle",real:"137.5 sacks · HOF interior rusher (leader)",s:[96,86,88,96],why:"Relentless, disruptive 3-technique."},
+ {team:"Seahawks",era:"1990s",pos:"DL",nm:"Cortez Kennedy",real:"1992 DPOY · 8× Pro Bowl (leader)",s:[90,94,94,90],why:"Dominant interior force on bad teams."},
+ {team:"Eagles",era:"2010s",pos:"DL",nm:"Fletcher Cox",real:"6× Pro Bowl interior wrecker (leader)",s:[92,92,94,88],why:"Powerful, quick penetrating tackle."},
+ {team:"Rams",era:"2020s",pos:"DL",nm:"Aaron Donald",real:"3× DPOY · best DT of his generation (leader)",s:[99,93,96,97],why:"Simply unblockable inside."},
+ {team:"Chiefs",era:"2010s",pos:"DL",nm:"Justin Houston",real:"22 sacks in 2014 (edge leader)",s:[93,84,86,92],why:"Bendy, productive edge rusher."},
+ {team:"Bills",era:"2020s",pos:"DL",nm:"Von Miller",real:"SB MVP pedigree · 120+ career sacks (leader)",s:[80,84,88,93],why:"Elite bend and a closer's instinct."},
+ {team:"Cowboys",era:"1990s",pos:"DL",nm:"Charles Haley",real:"100.5 sacks · 5× SB champ (leader)",s:[94,86,88,93],why:"Only player with five rings."},
+ {team:"49ers",era:"2010s",pos:"DL",nm:"Justin Smith",real:"motor-driven anchor of an elite front (leader)",s:[88,94,92,96],why:"Freed up the rush with relentless effort."},
+ {team:"Bears",era:"2010s",pos:"DL",nm:"Julius Peppers",real:"159.5 sacks · freakish athlete (leader)",s:[94,90,92,90],why:"Rare size-speed combo off the edge."},
+ {team:"Panthers",era:"2010s",pos:"DL",nm:"Kawann Short",real:"2× Pro Bowl interior disruptor (leader)",s:[90,88,90,86],why:"Quick, powerful three-technique."},
+ {team:"Jaguars",era:"2010s",pos:"DL",nm:"Calais Campbell",real:"long, disruptive 100-sack lineman (leader)",s:[90,94,92,92],why:"Huge wingspan; bats passes and stuffs runs."},
+ {team:"Commanders",era:"2000s",pos:"DL",nm:"Sean Taylor_skip",real:"",s:[],why:""},
+ // ---------- OUTSIDE LINEBACKERS ----------
+ {team:"Chargers",era:"1990s",pos:"LB",nm:"Junior Seau",real:"12× Pro Bowl · sideline-to-sideline motor",s:[84,93,90,84],why:"Relentless, instinctive, everywhere at once."},
+ {team:"Cowboys",era:"2000s",pos:"LB",nm:"DeMarcus Ware",real:"138.5 sacks · 9× Pro Bowl (edge)",s:[80,87,89,94],why:"Smooth, productive bend off the edge."},
+ {team:"Bears",era:"1980s",pos:"LB",nm:"Wilber Marshall",real:"hard-hitting playmaker on the 46 D",s:[82,90,88,86],why:"Athletic, attacking outside backer."},
+ {team:"Giants",era:"1980s",pos:"LB",nm:"Carl Banks",real:"premier run-stopping OLB next to LT",s:[80,93,84,82],why:"Set a hard edge against the run."},
+ {team:"Steelers",era:"1990s",pos:"LB",nm:"Greg Lloyd",real:"5× Pro Bowl · fearsome blitzer",s:[80,90,86,90],why:"Intimidating, versatile edge defender."},
+ {team:"Saints",era:"2000s",pos:"LB",nm:"Jonathan Vilma_skip",real:"",s:[],why:""},
+ {team:"Broncos",era:"2010s",pos:"LB",nm:"Von Miller",real:"SB 50 MVP · bend-the-edge artist",s:[80,84,90,95],why:"Premier edge bender with a ring."},
+ {team:"Bills",era:"1990s",pos:"LB",nm:"Bryce Paup",real:"1995 DPOY · 17.5 sacks that year",s:[78,86,84,92],why:"Productive pass-rushing peak."},
+ {team:"Chiefs",era:"2020s",pos:"LB",nm:"Nick Bolton",real:"tackle machine · key SB defender",s:[84,92,86,76],why:"Downhill thumper with range."},
+ {team:"Steelers",era:"2010s",pos:"LB",nm:"T.J. Watt",real:"2021 DPOY · led NFL in sacks (edge)",s:[82,88,88,97],why:"Elite get-off and production."},
+ {team:"Browns",era:"2020s",pos:"LB",nm:"Myles Garrett",real:"2023 DPOY · dominant edge (leader)",s:[84,90,92,98],why:"Rare blend of speed, power and length."},
+ // ---------- MIDDLE LINEBACKERS ----------
+ {team:"Chiefs",era:"1970s",pos:"MLB",nm:"Willie Lanier",real:"HOF · 8× Pro Bowl · 'Contact' (leader)",s:[80,96,94,84],why:"Ferocious, intelligent middle anchor."},
+ {team:"Dolphins",era:"1970s",pos:"MLB",nm:"Nick Buoniconti",real:"HOF leader of the No-Name Defense",s:[80,92,94,82],why:"Brainy quarterback of a title defense."},
+ {team:"49ers",era:"2010s",pos:"MLB",nm:"Patrick Willis",real:"7× Pro Bowl · 5× All-Pro · tackle machine",s:[88,98,92,90],why:"The complete modern middle linebacker."},
+ {team:"Ravens",era:"2010s",pos:"MLB",nm:"C.J. Mosley",real:"4× Pro Bowl · rangy three-down LB",s:[88,92,90,86],why:"Coverage instincts with sure tackling."},
+ {team:"Seahawks",era:"2010s",pos:"MLB",nm:"Bobby Wagner",real:"8× All-Pro · sideline-to-sideline range",s:[90,96,94,94],why:"Cerebral, rangy, rarely out of position."},
+ {team:"Buccaneers",era:"2010s",pos:"MLB",nm:"Lavonte David",real:"underrated do-it-all every-down LB",s:[88,94,88,88],why:"Disruptive in coverage and against the run."},
+ {team:"Cowboys",era:"1990s",pos:"MLB",nm:"Ken Norton Jr.",real:"3× SB champ · sure-tackling leader",s:[82,92,86,82],why:"Steady, physical middle presence."},
+ {team:"Panthers",era:"2010s",pos:"MLB",nm:"Luke Kuechly",real:"2013 DPOY · coverage savant · 18 INT",s:[94,93,97,88],why:"Read QBs' eyes for picks all over."},
+ {team:"Falcons",era:"2010s",pos:"MLB",nm:"Deion Jones",real:"rangy coverage linebacker · Pro Bowl",s:[90,88,86,90],why:"Speed to erase the middle of the field."},
+ // ---------- CORNERBACKS ----------
+ {team:"Steelers",era:"1990s",pos:"CB",nm:"Rod Woodson",real:"71 INT · 1993 DPOY · HOF",s:[92,92,94,86],why:"Playmaking ballhawk with safety range."},
+ {team:"Packers",era:"2000s",pos:"CB",nm:"Charles Woodson",real:"65 INT · 2009 DPOY · Heisman corner",s:[91,86,95,85],why:"Versatile ballhawk who did everything."},
+ {team:"Broncos",era:"2000s",pos:"CB",nm:"Champ Bailey",real:"12× Pro Bowl · smooth lockdown HOF corner",s:[94,92,90,80],why:"Elite, durable man-coverage corner."},
+ {team:"Cardinals",era:"1990s",pos:"CB",nm:"Aeneas Williams",real:"55 INT · HOF ballhawk",s:[90,88,94,82],why:"Shutdown corner who took it the distance."},
+ {team:"Dolphins",era:"2020s",pos:"CB",nm:"Jalen Ramsey",real:"physical press All-Pro corner",s:[95,90,88,86],why:"Erases a side of the field."},
+ {team:"Jets",era:"2010s",pos:"CB",nm:"Darrelle Revis",real:"Revis Island · 29 INT · 4× All-Pro",s:[98,90,88,82],why:"Erased No.1 receivers on an island."},
+ {team:"Raiders",era:"1970s",pos:"CB",nm:"Willie Brown",real:"54 INT · bump-and-run pioneer · HOF",s:[92,86,90,86],why:"Defined the press corner."},
+ {team:"Patriots",era:"2010s",pos:"CB",nm:"Stephon Gilmore",real:"2019 DPOY · shutdown press corner",s:[95,88,90,84],why:"Sticky man coverage; takeaway knack."},
+ {team:"49ers",era:"1990s",pos:"CB",nm:"Deion Sanders",real:"Prime Time · best cover corner ever",s:[99,98,95,60],why:"A one-man no-fly zone."},
+ {team:"Chiefs",era:"2020s",pos:"CB",nm:"L'Jarius Sneed",real:"sticky press corner · key SB defender",s:[92,90,86,86],why:"Travels with and erases No.1s."},
+ {team:"Lions",era:"1990s",pos:"CB",nm:"Bryant Westbrook_skip",real:"",s:[],why:""},
+ {team:"Eagles",era:"2000s",pos:"CB",nm:"Troy Vincent",real:"5× Pro Bowl shutdown corner",s:[90,88,88,84],why:"Smooth, reliable cover man."},
+ // ---------- SAFETIES ----------
+ {team:"Broncos",era:"1990s",pos:"S",nm:"Steve Atwater",real:"HOF · big-hitting 8× Pro Bowl safety",s:[84,86,98,84],why:"Intimidating enforcer over the middle."},
+ {team:"Seahawks",era:"1980s",pos:"S",nm:"Kenny Easley",real:"1984 DPOY · HOF · ferocious hitter",s:[88,88,96,88],why:"Rare blend of range and violence."},
+ {team:"Steelers",era:"2010s",pos:"S",nm:"Troy Polamalu",real:"2010 DPOY · chaos agent · HOF",s:[90,93,94,90],why:"Diagnoses and detonates plays."},
+ {team:"Eagles",era:"2000s",pos:"S",nm:"Brian Dawkins",real:"37 INT · Weapon X · HOF",s:[88,90,96,86],why:"Safety, blitzer, centerfielder in one."},
+ {team:"Steelers",era:"2020s",pos:"S",nm:"Minkah Fitzpatrick",real:"multiple All-Pro · ball-hawking eraser",s:[92,94,88,92],why:"Range and takeaways from the deep middle."},
+ {team:"Ravens",era:"2010s",pos:"S",nm:"Ed Reed",real:"64 INT · 2004 DPOY · ball magnet · HOF",s:[95,98,82,99],why:"Read the QB like a script."},
+ {team:"Chargers",era:"2000s",pos:"S",nm:"Rodney Harrison",real:"hard-hitting safety · 34 INT · 30.5 sacks",s:[82,82,97,84],why:"Enforcer who blitzed and covered."},
+ {team:"Vikings",era:"2010s",pos:"S",nm:"Harrison Smith",real:"multiple All-Pro · do-it-all safety",s:[90,90,90,90],why:"Versatile chess piece in the back end."},
+ {team:"Cardinals",era:"2010s",pos:"S",nm:"Tyrann Mathieu",real:"Honey Badger · playmaking hybrid",s:[90,88,86,92],why:"Slot/safety hybrid who takes the ball away."},
+ {team:"Saints",era:"2020s",pos:"S",nm:"Tyrann Mathieu",real:"veteran leader of the secondary",s:[88,86,86,90],why:"Smart, versatile coverage defender."},
+ {team:"Chiefs",era:"2000s",pos:"S",nm:"Eric Berry_skip",real:"",s:[],why:""},
+ {team:"49ers",era:"1990s",pos:"S",nm:"Merton Hanks",real:"4× Pro Bowl ballhawk · 31 INT",s:[88,90,82,90],why:"Rangy centerfielder with great instincts."}
+];
+
+/* ============================================================
+   EXTRA2 — a third tier of real players, focused on filling thin
+   division/decade cells so the shuffles always land on real choices.
+   ============================================================ */
+const EXTRA2=[
+ // QBs across more eras/divisions
+ {team:"Bengals",era:"2010s",pos:"QB",nm:"Andy Dalton",real:"4× Pro Bowl · steady franchise passer",s:[84,86,84,64,80],why:"Reliable rhythm passer with a quick release."},
+ {team:"Chargers",era:"2010s",pos:"QB",nm:"Philip Rivers",real:"still slinging it · 4,000+ yd seasons",s:[86,90,90,50,84],why:"Fearless anticipation thrower."},
+ {team:"Falcons",era:"2000s",pos:"QB",nm:"Michael Vick",real:"most electric runner ever at QB",s:[94,78,80,99,84],why:"Unprecedented dual-threat explosiveness."},
+ {team:"Panthers",era:"2000s",pos:"QB",nm:"Jake Delhomme",real:"led a Super Bowl run · gutsy passer",s:[84,84,82,64,84],why:"Clutch in big spots during the title run."},
+ {team:"Jaguars",era:"2010s",pos:"QB",nm:"Blake Bortles",real:"4,400-yd season · AFC title game starter",s:[88,80,78,76,78],why:"Big arm, mobile, streaky gunslinger."},
+ {team:"Texans",era:"2010s",pos:"QB",nm:"Deshaun Watson",real:"explosive dual-threat · 4,800-yd season",s:[88,88,86,90,84],why:"Dynamic playmaker inside and outside the pocket."},
+ {team:"Jets",era:"1990s",pos:"QB",nm:"Vinny Testaverde",real:"Pro Bowl gunslinger · big arm",s:[92,82,82,66,80],why:"Cannon arm; led a deep playoff run."},
+ {team:"Commanders",era:"1980s",pos:"QB",nm:"Joe Theismann",real:"1983 MVP · SB XVII champ",s:[84,86,86,76,86],why:"Mobile, accurate leader of a champion."},
+ {team:"Browns",era:"1980s",pos:"QB",nm:"Bernie Kosar",real:"sidearm gunslinger · deep playoff runs",s:[82,86,88,56,86],why:"Cerebral, tough pocket passer."},
+ // RBs
+ {team:"Chiefs",era:"2020s",pos:"RB",nm:"Isiah Pacheco",real:"physical SB-winning runner",s:[88,88,82,76],why:"Downhill burst and contact balance."},
+ {team:"Browns",era:"1980s",pos:"RB",nm:"Kevin Mack",real:"1,000-yd bruiser of the Kardiac era",s:[82,90,82,74],why:"Punishing between-the-tackles runner."},
+ {team:"Eagles",era:"2000s",pos:"RB",nm:"Brian Westbrook",real:"dynamic dual-threat · Pro Bowl",s:[90,78,88,94],why:"Matchup nightmare out of the backfield."},
+ {team:"Falcons",era:"2010s",pos:"RB",nm:"Devonta Freeman",real:"2× Pro Bowl · 1,000-yd dual threat",s:[88,82,86,88],why:"Quick, balanced three-down back."},
+ {team:"Panthers",era:"2020s",pos:"RB",nm:"Christian McCaffrey",real:"1,000/1,000 season · OPOY",s:[92,84,90,98],why:"The ultimate modern do-it-all back."},
+ {team:"Jaguars",era:"2010s",pos:"RB",nm:"Maurice Jones-Drew",real:"rushing title · compact power-speed",s:[88,90,86,84],why:"Pound-for-pound a load to tackle."},
+ {team:"Jets",era:"2000s",pos:"RB",nm:"Curtis Martin",real:"14,101 yds · 2004 rushing title · HOF",s:[86,86,92,84],why:"Steady, durable, always productive."},
+ {team:"Texans",era:"2010s",pos:"RB",nm:"Arian Foster",real:"rushing title · complete back",s:[88,84,88,90],why:"Smooth zone runner with great hands."},
+ {team:"Dolphins",era:"1970s",pos:"RB",nm:"Larry Csonka",real:"HOF bruiser of the perfect-season Dolphins",s:[76,97,86,68],why:"Bulldozing power back of a champion."},
+ {team:"Commanders",era:"1980s",pos:"RB",nm:"John Riggins",real:"SB XVII MVP · punishing HOF back",s:[78,96,86,70],why:"Short-yardage hammer."},
+ // WRs
+ {team:"Bengals",era:"1980s",pos:"WR",nm:"Cris Collinsworth",real:"3× Pro Bowl deep threat",s:[88,86,90,82],why:"Smart, productive possession-plus-deep target."},
+ {team:"Chargers",era:"1990s",pos:"WR",nm:"Tony Martin",real:"explosive vertical threat",s:[92,84,84,86],why:"Field-stretching speed."},
+ {team:"Jets",era:"1990s",pos:"WR",nm:"Wayne Chrebet",real:"gritty, sure-handed slot",s:[78,92,90,80],why:"Money on third down."},
+ {team:"Panthers",era:"2000s",pos:"WR",nm:"Steve Smith Sr.",real:"triple-crown season · fearless competitor",s:[90,90,92,90],why:"Wins every contested ball."},
+ {team:"Jaguars",era:"2000s",pos:"WR",nm:"Jimmy Smith",real:"5× Pro Bowl · 12,000+ yds",s:[88,90,90,84],why:"Big, smooth, dependable No.1."},
+ {team:"Texans",era:"2020s",pos:"WR",nm:"Nico Collins",real:"breakout 1,000-yd target",s:[88,90,88,86],why:"Big-bodied separator on the rise."},
+ {team:"Commanders",era:"1980s",pos:"WR",nm:"Gary Clark",real:"4× Pro Bowl · feisty deep threat",s:[90,86,88,86],why:"Explosive playmaker of The Posse."},
+ {team:"Falcons",era:"2020s",pos:"WR",nm:"Drake London",real:"big-bodied possession alpha",s:[84,90,86,84],why:"Contested-catch winner outside."},
+ {team:"Browns",era:"2000s",pos:"WR",nm:"Braylon Edwards",real:"1,289-yd Pro Bowl season",s:[90,82,84,84],why:"Tall, fast vertical threat."},
+ {team:"Bills",era:"2020s",pos:"WR",nm:"Stefon Diggs",real:"receiving-title-level route runner",s:[90,92,96,88],why:"Elite separation at every level."},
+ // OL leaders
+ {team:"Bengals",era:"1980s",pos:"OL",nm:"Anthony Munoz",real:"greatest LT ever · 11× Pro Bowl (leader)",s:[98,95,92,97],why:"The gold standard at tackle."},
+ {team:"Commanders",era:"1990s",pos:"OL",nm:"Joe Jacoby_skip",real:"",s:[],why:""},
+ {team:"Chiefs",era:"2010s",pos:"OL",nm:"Mitchell Schwartz",real:"All-Pro RT · elite pass protector (leader)",s:[94,88,88,92],why:"Steady, technically flawless blocker."},
+ {team:"Browns",era:"2010s",pos:"OL",nm:"Joe Thomas",real:"10,000+ snaps · 10× Pro Bowl LT (leader)",s:[97,88,89,95],why:"A pass-protecting metronome."},
+ {team:"Saints",era:"2000s",pos:"OL",nm:"Jahri Evans",real:"6× Pro Bowl guard (leader)",s:[90,93,90,90],why:"Powerful interior anchor for Brees."},
+ {team:"Vikings",era:"2010s",pos:"OL",nm:"Steve Hutchinson",real:"7× All-Pro guard · HOF (leader)",s:[92,97,95,92],why:"Maybe the best run-blocking guard ever."},
+ {team:"Falcons",era:"2010s",pos:"OL",nm:"Alex Mack",real:"All-Pro center · zone-blocking maestro (leader)",s:[92,90,86,90],why:"Smart, mobile pivot of the line."},
+ {team:"Panthers",era:"2010s",pos:"OL",nm:"Ryan Kalil",real:"5× Pro Bowl center (leader)",s:[90,90,86,90],why:"Athletic, reliable anchor."},
+ {team:"Jets",era:"2000s",pos:"OL",nm:"D'Brickashaw Ferguson",real:"durable Pro Bowl LT (leader)",s:[92,86,86,92],why:"Iron-man pass protector."},
+ {team:"Texans",era:"2010s",pos:"OL",nm:"Duane Brown",real:"multiple Pro Bowl LT (leader)",s:[92,88,88,90],why:"Athletic, steady blindside protector."},
+ // DL leaders
+ {team:"Bengals",era:"2010s",pos:"DL",nm:"Geno Atkins",real:"dominant interior rusher · multiple All-Pro (leader)",s:[94,88,90,90],why:"Quick, powerful three-technique."},
+ {team:"Jets",era:"2010s",pos:"DL",nm:"Muhammad Wilkerson",real:"disruptive 5-technique (leader)",s:[88,90,90,88],why:"Stout vs run, push as a rusher."},
+ {team:"Panthers",era:"2010s",pos:"DL",nm:"Julius Peppers",real:"159.5 sacks · freak athlete (leader)",s:[94,90,92,90],why:"Rare size-speed off the edge."},
+ {team:"Falcons",era:"2010s",pos:"DL",nm:"John Abraham",real:"133.5 sacks · bendy edge (leader)",s:[93,82,84,92],why:"Productive, flexible pass rusher."},
+ {team:"Saints",era:"2000s",pos:"DL",nm:"Will Smith",real:"key edge of the SB defense (leader)",s:[88,86,86,90],why:"Steady, productive rusher."},
+ {team:"Commanders",era:"2000s",pos:"DL",nm:"Bruce Smith",real:"finished as all-time sack king (leader)",s:[92,88,88,94],why:"Relentless even late in his HOF career."},
+ {team:"Texans",era:"2020s",pos:"DL",nm:"Will Anderson Jr.",real:"DROY-level edge force (leader)",s:[90,86,86,94],why:"Explosive, polished young rusher."},
+ {team:"Browns",era:"1990s",pos:"DL",nm:"Michael Dean Perry",real:"6× Pro Bowl interior force (leader)",s:[92,88,90,90],why:"Quick, disruptive tackle."},
+ {team:"Lions",era:"2020s",pos:"DL",nm:"Aidan Hutchinson",real:"ascending All-Pro edge (leader)",s:[90,88,88,94],why:"High-motor, productive bookend."},
+ // LBs — fill the missing divisions
+ {team:"Saints",era:"2010s",pos:"LB",nm:"Cameron Jordan",real:"perennial Pro Bowl edge",s:[80,88,84,92],why:"Durable, productive edge setter."},
+ {team:"Falcons",era:"1990s",pos:"LB",nm:"Jessie Tuggle",real:"5× Pro Bowl tackle machine",s:[80,94,84,82],why:"Sideline-to-sideline thumper."},
+ {team:"Panthers",era:"2010s",pos:"LB",nm:"Thomas Davis",real:"3× Pro Bowl · all-around OLB",s:[86,92,86,84],why:"Coverage and run support in one."},
+ {team:"Jaguars",era:"2010s",pos:"LB",nm:"Telvin Smith",real:"rangy playmaking LB · Pro Bowl",s:[88,88,90,82],why:"Speed to chase down everything."},
+ {team:"Texans",era:"2010s",pos:"LB",nm:"Whitney Mercilus",real:"productive edge rusher",s:[78,84,84,90],why:"Bursty pass-rush complement."},
+ {team:"Bengals",era:"2000s",pos:"LB",nm:"Takeo Spikes",real:"2× Pro Bowl playmaking LB",s:[84,90,86,82],why:"Physical, instinctive defender."},
+ {team:"Cardinals",era:"2010s",pos:"LB",nm:"Chandler Jones",real:"100+ sacks · elite edge",s:[80,86,86,95],why:"Long, productive sack artist."},
+ // MLBs — fill the missing division + deepen
+ {team:"Saints",era:"2010s",pos:"MLB",nm:"Demario Davis",real:"All-Pro three-down leader",s:[86,94,90,86],why:"Tone-setting, rangy modern MLB."},
+ {team:"Jets",era:"2010s",pos:"MLB",nm:"David Harris",real:"durable, sure-tackling middle anchor",s:[82,92,88,80],why:"Reliable run-stuffer."},
+ {team:"Cardinals",era:"2000s",pos:"MLB",nm:"Karlos Dansby",real:"rangy, versatile three-down LB",s:[86,90,88,86],why:"Coverage chops with size."},
+ {team:"Falcons",era:"2010s",pos:"MLB",nm:"Deion Jones",real:"rangy coverage linebacker · Pro Bowl",s:[90,88,86,90],why:"Speed to erase the middle."},
+ {team:"Texans",era:"2010s",pos:"MLB",nm:"Brian Cushing",real:"DROY · physical downhill MLB",s:[82,92,86,82],why:"Thumping, instinctive defender."},
+ {team:"Jaguars",era:"2020s",pos:"MLB",nm:"Foyesade Oluokun",real:"led NFL in tackles · rangy",s:[86,94,86,88],why:"Sideline-to-sideline tackle machine."},
+ // CBs — fill missing divisions + deepen
+ {team:"Saints",era:"2010s",pos:"CB",nm:"Marshon Lattimore",real:"DROY · physical press corner",s:[92,88,88,84],why:"Sticky man-coverage shutdown corner."},
+ {team:"Falcons",era:"2010s",pos:"CB",nm:"Desmond Trufant",real:"Pro Bowl press corner",s:[90,90,86,82],why:"Fluid, reliable cover man."},
+ {team:"Panthers",era:"2010s",pos:"CB",nm:"Josh Norman",real:"All-Pro shutdown season",s:[92,86,90,84],why:"Confident, physical island corner."},
+ {team:"Jaguars",era:"2010s",pos:"CB",nm:"Jalen Ramsey",real:"All-Pro press corner",s:[95,90,88,86],why:"Erases a side of the field."},
+ {team:"Texans",era:"2000s",pos:"CB",nm:"Dunta Robinson",real:"physical press corner · Pro Bowl-level",s:[88,90,84,86],why:"Aggressive, sticky coverage."},
+ {team:"Bengals",era:"2010s",pos:"CB",nm:"Leon Hall",real:"ballhawking, reliable corner",s:[88,86,90,84],why:"Smart, sure-tackling cover man."},
+ {team:"Jets",era:"1980s",pos:"CB",nm:"Bobby Jackson_skip",real:"",s:[],why:""},
+ {team:"Bills",era:"1990s",pos:"CB",nm:"Nate Odomes",real:"2× Pro Bowl ballhawk",s:[88,88,90,82],why:"Reliable cover corner on a contender."},
+ // Safeties — deepen
+ {team:"Saints",era:"2010s",pos:"S",nm:"Malcolm Jenkins",real:"versatile All-Pro safety",s:[88,88,90,86],why:"Box, slot, deep — does it all."},
+ {team:"Falcons",era:"2010s",pos:"S",nm:"Keanu Neal",real:"hard-hitting box safety · Pro Bowl",s:[80,82,96,80],why:"Enforcer in run support."},
+ {team:"Panthers",era:"2010s",pos:"S",nm:"Mike Minter",real:"hard-nosed longtime starter",s:[84,84,90,82],why:"Sure-tackling, reliable presence."},
+ {team:"Jaguars",era:"2010s",pos:"S",nm:"Tashaun Gipson",real:"ballhawking free safety · Pro Bowl",s:[88,90,82,90],why:"Range and takeaway instincts."},
+ {team:"Texans",era:"2010s",pos:"S",nm:"Glover Quin",real:"durable, steady deep safety",s:[88,90,84,88],why:"Smart centerfielder."},
+ {team:"Bengals",era:"2020s",pos:"S",nm:"Vonn Bell",real:"physical, reliable box safety",s:[84,84,92,82],why:"Thumper who tackles in space."},
+ {team:"Jets",era:"1980s",pos:"S",nm:"Erik McMillan",real:"2× Pro Bowl ballhawk",s:[86,88,84,90],why:"Playmaking young safety."},
+ {team:"Commanders",era:"1980s",pos:"S",nm:"Todd Bowles",real:"steady starter on a champion",s:[84,84,86,84],why:"Smart, dependable coverage safety."}
+];
+
+/* placeholder anchor for the old EXTRA close (kept for structure) */
+const _EXTRA_END=true;
+
+/* Map each franchise to the city/region it represents (shown instead
+   of the team nickname). Logic still keys on the nickname internally. */
+const CITY={
+  "49ers":"San Francisco","Bears":"Chicago","Bengals":"Cincinnati","Bills":"Buffalo",
+  "Broncos":"Denver","Browns":"Cleveland","Buccaneers":"Tampa Bay","Cardinals":"Arizona",
+  "Chargers":"Los Angeles","Chiefs":"Kansas City","Colts":"Indianapolis","Commanders":"Washington",
+  "Cowboys":"Dallas","Dolphins":"Miami","Eagles":"Philadelphia","Falcons":"Atlanta",
+  "Giants":"New York","Jaguars":"Jacksonville","Jets":"New York","Lions":"Detroit",
+  "Packers":"Green Bay","Panthers":"Carolina","Patriots":"New England","Raiders":"Las Vegas",
+  "Rams":"Los Angeles","Ravens":"Baltimore","Saints":"New Orleans","Seahawks":"Seattle",
+  "Steelers":"Pittsburgh","Texans":"Houston","Titans":"Tennessee","Vikings":"Minnesota"
+};
+function cityOf(team){return CITY[team]||team;}
+
+/* Build combos as CONFERENCE + DIVISION + ERA (team removed).
+   Each landing pools EVERY player from ANY team in that division,
+   in that era — tagged with their team so the card can still show it. */
+const COMBOS=[];  // {conf,div,era}
+const POOLMAP={};  // "conf|div|era" -> [players (with .team)]
+for(const conf in NFL)for(const div in NFL[conf]){
+  for(const team in NFL[conf][div]){
+    for(const era in NFL[conf][div][team]){
+      const arr=NFL[conf][div][team][era];
+      if(arr.length===0)continue;
+      const key=conf+'|'+div+'|'+era;
+      if(!POOLMAP[key]){POOLMAP[key]=[];COMBOS.push({conf,div,era});}
+      arr.forEach(p=>POOLMAP[key].push({...p,team,era}));
+    }
+  }
+}
+function rosterAt(c){return POOLMAP[c.conf+'|'+c.div+'|'+c.era]||[];}
+
+/* Merge the EXTRA real-player tier into the division pools.
+   Skip any malformed/placeholder entries (empty name, unknown team,
+   or *_skip markers) so only valid real players are added. */
+(function mergeExtra(){
+  // team -> {conf,div}
+  const loc={};
+  for(const conf in NFL)for(const div in NFL[conf])for(const team in NFL[conf][div])loc[team]={conf,div};
+  let added=0;
+  const merge=list=>list.forEach(p=>{
+    if(!p.nm||!p.team||p.team.indexOf('_skip')>=0||p.nm.indexOf('_skip')>=0)return;
+    if(!Array.isArray(p.s)||p.s.length===0)return;
+    const where=loc[p.team];if(!where)return;            // team not in league map
+    if(ERAS.indexOf(p.era)<0)return;                      // bad era
+    const key=where.conf+'|'+where.div+'|'+p.era;
+    if(!POOLMAP[key]){POOLMAP[key]=[];COMBOS.push({conf:where.conf,div:where.div,era:p.era});}
+    if(POOLMAP[key].some(q=>q.nm===p.nm&&q.pos===p.pos))return;  // dedup name+pos
+    POOLMAP[key].push({pos:p.pos,nm:p.nm,real:p.real,s:p.s,why:p.why,team:p.team,era:p.era});
+    added++;
+  });
+  merge(EXTRA);
+  merge(typeof EXTRA2!=='undefined'?EXTRA2:[]);
+  window.__extraAdded=added;
+})();
+
+const OFF_W={QB:.34,RB:.18,WR:.24,OL:.24};
+const DEF_W={DL:.24,LB:.18,MLB:.20,CB:.22,S:.16};
+
+/* STATE */
+let mode='classic', eraSkip=2, divSkip=2;
+let roster={}, current=null, season=null, pendingPos=null;
+let passed={};      // pos -> [players passed on, dedup by name]
+let pickHistory=[]; // order positions were filled, for undo-last
+let lastView={};    // pos -> the exact landing (c) last shown there
+let reopening=false;// true when re-opening a filled slot (no new spin, no shuffle)
+let board='free';          // 'free' or 'daily'
+let pickIndex=0;           // counts landing draws (for daily determinism)
+
+/* --- seeded RNG (mulberry32) for the DAILY board ---
+   In daily mode, the sequence of landings is identical for everyone
+   on the same calendar day. The SIM stays truly random so you can
+   replay the same board and improve your record. */
+let _seed=0;
+function dateSeed(){
+  const d=new Date();
+  return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+let _rng=mulberry32(123456);
+// landing randomness: seeded in daily mode, free otherwise
+function lrand(){return board==='daily'?_rng():Math.random();}
+function lpick(arr){return arr[Math.floor(lrand()*arr.length)];}
+
+function ovr(s){return Math.round(s.reduce((a,b)=>a+b,0)/s.length);}
+function setMode(m){mode=m;const a=document.getElementById('mode-classic'),b=document.getElementById('mode-gridiron');if(a)a.classList.toggle('on',m==='classic');if(b)b.classList.toggle('on',m==='gridiron');}
+function setBoard(b){board=b;const f=document.getElementById('board-free'),d=document.getElementById('board-daily');if(f)f.classList.toggle('on',b==='free');if(d)d.classList.toggle('on',b==='daily');}
+
+/* ---- LANDING / ENVIRONMENT DETECTION ----
+   Works in Safari and Chrome. Detects whether the file is open in a
+   real browser (sharing works) or a limited in-app/Quick Look preview,
+   and configures the landing screen + a browser-open helper. */
+function detectEnv(){
+  const ua=navigator.userAgent||'';
+  const canShareFiles=(()=>{
+    try{return !!(navigator.canShare&&navigator.canShare({files:[new File([new Blob([''],{type:'image/png'})],'t.png',{type:'image/png'})]}));}
+    catch(e){return false;}
+  })();
+  const hasShare=typeof navigator.share==='function';
+  // crude in-app/preview heuristics (Messages/Mail Quick Look, embedded webviews)
+  const inApp=/\b(FBAN|FBAV|Instagram|Line|Twitter|GSA)\b/i.test(ua) ||
+              (/(iPhone|iPad).*AppleWebKit(?!.*Safari)/i.test(ua));
+  const isSafari=/^((?!chrome|android|crios|fxios).)*safari/i.test(ua);
+  const isChrome=/chrome|crios/i.test(ua);
+  return {canShareFiles,hasShare,inApp,isSafari,isChrome,fileProto:location.protocol==='file:'};
+}
+function initLanding(){
+  const env=detectEnv();
+  const pill=document.getElementById('envPill');
+  const note=document.getElementById('shareNote');
+  const openBtn=document.getElementById('openBrowserBtn');
+  if(env.canShareFiles){
+    pill.textContent='✓ Sharing ready';pill.className='env-pill ok';
+    note.innerHTML='Your browser supports one-tap sharing — after your season you can send your record card straight to <b>Messages</b>.';
+  }else if(env.inApp||env.fileProto){
+    pill.textContent='Preview mode';pill.className='env-pill warn';
+    note.innerHTML='You can play right here. For one-tap sharing of your card to Messages, open this in <b>Safari</b> or <b>Chrome</b>.';
+    if(/^https?:/.test(location.href)){openBtn.style.display='';}
+  }else{
+    pill.textContent='Ready to play';pill.className='env-pill ok';
+    note.innerHTML='Full game ready. Your record card will download as an image you can save and share.';
+  }
+}
+function enterGame(){
+  document.getElementById('screen-landing').classList.remove('active');
+  document.getElementById('screen-start').classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function openInBrowser(btn){
+  // If hosted (http/https): Safari/Chrome can open the same URL directly.
+  // If a local file:// preview, we can't force-launch a browser, so guide them.
+  const url=location.href;
+  if(/^https?:/.test(url)){
+    // attempt to open in a real browser tab
+    window.open(url,'_blank');
+    if(btn){const o=btn.textContent;btn.textContent='Opening…';setTimeout(()=>btn.textContent=o,1500);}
+  }else{
+    if(btn){const o=btn.textContent;btn.textContent='Use the Share icon → Open in Safari';setTimeout(()=>btn.textContent=o,2600);}
+  }
+}
+/* current target = a tapped position if pending (even if already
+   filled — that's how you change a pick), else the next unfilled
+   position in the default draft order (free order overall). */
+function currentTarget(){
+  if(pendingPos)return pendingPos;
+  return DRAFT_ORDER.find(p=>!roster[p])||null;
+}
+function openPositions(){const t=currentTarget();return t?[t]:[];}
+
+function startDraft(){
+  document.getElementById('screen-start').classList.remove('active');
+  document.getElementById('screen-draft').classList.add('active');
+  if(board==='daily'){_rng=mulberry32(dateSeed());}
+  pickIndex=0;
+  buildProgress();
+  renderField();
+  freshSpin();
+}
+function buildProgress(){
+  const p=document.getElementById('progress');p.innerHTML='';
+  POSORDER.forEach((_,i)=>{const d=document.createElement('div');d.className='pip';d.id='pip'+i;p.appendChild(d);});
+}
+function updateProgress(){
+  const filled=Object.keys(roster).length;
+  POSORDER.forEach((_,i)=>document.getElementById('pip'+i).className='pip'+(i<filled?' done':i===filled?' cur':''));
+}
+
+/* ---- LANDING MODEL (era reel always matches the cards) ----
+   For the current position, a landing is a CONFERENCE + DIVISION.
+   The cards are every player at that position from any team in that
+   division, across the decades they actually played. The ERA reel
+   shows the real span of those cards (e.g. "1980s–2020s"), so the
+   reel can never disagree with a card.
+   shuffleDiv(): pick a DIFFERENT division.
+   shuffleEra(): narrow to a SINGLE decade within the current
+   division that has the position, so you can focus one era if you
+   want — and the reel shows exactly that decade.
+*/
+const MIN_CARDS=3;
+// all players at the target position within conf+div, any era
+function divPositionPool(conf,div,pos){
+  const out=[];
+  ERAS.forEach(era=>{const r=POOLMAP[conf+'|'+div+'|'+era];if(r)r.forEach(p=>{if(p.pos===pos)out.push(p);});});
+  return out;
+}
+/* A landing is {conf, div, optional era}.
+   - No era set  -> that DIVISION's players across all decades (full span).
+   - Era set     -> that decade pooled LEAGUE-WIDE (every team) for depth,
+                    so Shuffle Era always lands on real choices. */
+function landingPool(c){
+  const pos=currentTarget();
+  if(c.era){
+    const out=[];
+    for(const conf in NFL)for(const div in NFL[conf]){
+      const r=POOLMAP[conf+'|'+div+'|'+c.era];
+      if(r)r.forEach(p=>{if(p.pos===pos)out.push(p);});
+    }
+    return out;
+  }
+  return divPositionPool(c.conf,c.div,pos);
+}
+function eraSpanLabel(players){
+  if(!players.length)return '—';
+  const idxs=players.map(p=>ERAS.indexOf(p.era)).filter(i=>i>=0).sort((a,b)=>a-b);
+  const lo=ERAS[idxs[0]],hi=ERAS[idxs[idxs.length-1]];
+  return lo===hi?lo:lo+'–'+hi;
+}
+function draftableCount(c){return landingPool(c).length;}
+function expandedRoster(c){return landingPool(c);}
+
+// candidate divisions (conf+div) that have the target position
+function divsWithPosition(){
+  const pos=currentTarget();const seen={},out=[];
+  for(const conf in NFL)for(const div in NFL[conf]){
+    if(divPositionPool(conf,div,pos).length>0){const key=conf+'|'+div;if(!seen[key]){seen[key]=1;out.push({conf,div});}}
+  }
+  return out;
+}
+function pickBest(cands){
+  if(cands.length===0)return null;
+  const rich=cands.filter(c=>draftableCount(c)>=MIN_CARDS);
+  if(rich.length)return lpick(rich);
+  const max=Math.max(...cands.map(draftableCount));
+  const best=cands.filter(c=>draftableCount(c)===max);
+  return lpick(best);
+}
+function freshSpin(){
+  if(!currentTarget()){showTweakPrompt();return;}
+  const cands=divsWithPosition();          // {conf,div} — era open (span shown)
+  animate(pickBest(cands));
+}
+/* when every slot is filled and nothing is being changed, prompt the
+   user to tap a position to change it (used after Tweak Roster). */
+function showTweakPrompt(){
+  document.getElementById('reelConf').textContent='—';
+  document.getElementById('reelDiv').textContent='—';
+  document.getElementById('reelEra').textContent='—';
+  document.getElementById('needLine').innerHTML='All 9 set — <b>tap any position on the field</b> to change it, then it re-sims.';
+  document.getElementById('slotActions').innerHTML='';
+  const area=document.getElementById('draftArea');area.innerHTML='';
+  const btn=document.createElement('button');btn.className='btn';btn.textContent='Re-Sim This Roster';
+  btn.onclick=()=>runSeason();
+  area.appendChild(btn);
+}
+function shuffleDiv(){
+  if(divSkip<=0)return;
+  const pos=currentTarget();
+  // Shuffle Division always shows a DIFFERENT division's full span (all decades).
+  // If you were viewing a single decade league-wide, this returns you to a
+  // division view (era span), which is the point of the button.
+  const cands=divsWithPosition().filter(c=>!(c.conf===current.conf&&c.div===current.div&&!current.era));
+  // exclude the current division only when we're already in its full-span view
+  const pool=cands.length?cands:divsWithPosition();
+  if(pool.length===0){flash('No other division has this position available.');return;}
+  divSkip--;
+  animate(pickBest(pool));   // full-span (no era) — all reels spin to the new division
+}
+function shuffleEra(){
+  if(eraSkip<=0)return;
+  const pos=currentTarget();
+  // decades available LEAGUE-WIDE for this position (era view is league-wide)
+  const eras=ERAS.filter(era=>{
+    for(const conf in NFL)for(const div in NFL[conf]){const r=POOLMAP[conf+'|'+div+'|'+era];if(r&&r.some(p=>p.pos===pos))return true;}
+    return false;
+  });
+  if(eras.length<=1){flash('Only one era of this position — try Shuffle Division.');return;}
+  // cycle: full span (era=null) -> each decade -> back to full span
+  const cycle=[null,...eras];
+  const curIdx=cycle.findIndex(e=>e===(current.era||null));
+  const next=cycle[(curIdx+1)%cycle.length];
+  eraSkip--;
+  // era view is league-wide, so conf/div show "All"; let reels settle naturally
+  animate(next?{conf:current.conf,div:current.div,era:next}:{conf:current.conf,div:current.div});
+}
+function flash(msg){
+  const n=document.getElementById('needLine');
+  const old=n.innerHTML;n.innerHTML=`<span style="color:var(--red)">${msg}</span>`;
+  setTimeout(()=>{if(current)showCards(current);},1600);
+}
+
+function animate(c,lock){
+  current=c;
+  const slot=document.getElementById('slot');
+  slot.classList.add('spinning');
+  document.getElementById('draftArea').innerHTML='';
+  document.getElementById('slotActions').innerHTML='';
+  const filled=Object.keys(roster).length;
+  const editing=pendingPos&&roster[pendingPos];
+  document.getElementById('hud-round').textContent=editing?`Editing ${pendingPos}`:`${Math.min(filled+1,9)} / 9`;
+  const rc=document.getElementById('reelConf'),rd=document.getElementById('reelDiv'),re=document.getElementById('reelEra');
+  const confs=Object.keys(NFL),divs=["North","South","East","West"];
+  // the era label that will truthfully match the cards
+  const pool=landingPool(c);
+  const eraLabel=c.era?c.era:eraSpanLabel(pool);
+  // which reels are locked (unchanged) — those hold steady, no spin flicker
+  lock=lock||{};
+  const confLabel=c.era?'All':c.conf;
+  const divLabel=c.era?'All':c.div;
+  if(lock.conf)rc.textContent=confLabel;
+  if(lock.div)rd.textContent=divLabel;
+  if(lock.era)re.textContent=eraLabel;
+  let t=0;
+  const iv=setInterval(()=>{
+    if(!lock.conf)rc.textContent=confs[Math.floor(Math.random()*confs.length)];
+    if(!lock.div)rd.textContent=divs[Math.floor(Math.random()*divs.length)];
+    if(!lock.era)re.textContent=ERAS[Math.floor(Math.random()*ERAS.length)];
+    t++;
+    if(t>14){
+      clearInterval(iv);slot.classList.remove('spinning');
+      rc.textContent=confLabel;rd.textContent=divLabel;re.textContent=eraLabel;
+      showCards(c);
+    }
+  },70);
+  updateProgress();renderField();renderSkips();
+}
+function renderSkips(){
+  const set=(id,v)=>{const el=document.getElementById(id);el.textContent=v;el.classList.toggle('used',v<=0);};
+  set('eraSkip',eraSkip);set('divSkip',divSkip);
+}
+
+function showCards(c){
+  const target=currentTarget();
+  lastView[target]=c;  // remember exactly what was shown here
+  const players=expandedRoster(c).filter(p=>p.pos===target);
+  const eraLabel=c.era?c.era:eraSpanLabel(players);
+  const loc=c.era?'All teams':`${c.conf} ${c.div}`;
+  document.getElementById('needLine').innerHTML=reopening
+    ? `Reviewing your <b>${POSLABEL[target]}</b> options — ${loc}, ${eraLabel}. These are the cards you had.`
+    : `Now drafting: <b>${POSLABEL[target]}</b> — ${loc}, ${eraLabel}`;
+  const sa=document.getElementById('slotActions');sa.innerHTML='';
+  const mk=(label,n,fn,enabled)=>{const b=document.createElement('button');b.className='btn ghost sm';b.textContent=`${label} (${n})`;b.disabled=!enabled;b.onclick=fn;return b;};
+  if(reopening){
+    // re-opening a filled slot: no new shuffles — only the options you had
+    const note=document.createElement('span');note.className='tap-hint';note.textContent='No re-shuffle when changing a pick — choose from the options you saw.';
+    sa.appendChild(note);
+  }else{
+    sa.appendChild(mk('Shuffle Era',eraSkip,shuffleEra,eraSkip>0));
+    sa.appendChild(mk('Shuffle Division',divSkip,shuffleDiv,divSkip>0));
+  }
+
+  // every card is at the target position; the era reel shows their real span
+  const area=document.getElementById('draftArea');area.innerHTML='';
+  const grid=document.createElement('div');grid.className='cards';
+  players.forEach(p=>{
+    const card=document.createElement('div');card.className='pcard';
+    let statsHtml='';
+    if(mode==='classic'){
+      statsHtml=`<div class="stats-real">${p.real}</div>`;
+      STATLABELS[p.pos].forEach((label,i)=>{const v=p.s[i];statsHtml+=`<div class="statrow"><span class="sl">${label}</span><span class="bar"><i style="width:${v}%;background:${statColor(v)}"></i></span><span class="sv">${v}</span></div>`;});
+    }
+    card.innerHTML=`<span class="posbadge">${p.pos}</span>
+      <div class="nm">${p.nm}</div><div class="era">${p.era} · ${cityOf(p.team)}</div>${statsHtml}
+      ${mode==='classic'?`<div class="why">Why: ${p.why}</div>`:''}`;
+    card.onclick=()=>draftPlayer(p);
+    grid.appendChild(card);
+  });
+  area.appendChild(grid);
+  if(players.length===0){const note=document.createElement('div');note.className='empty-note';note.textContent='No '+POSLABEL[target]+' available here — shuffle the era or division.';area.appendChild(note);}
+  // if this position is already filled, show what you currently have + a keep option
+  if(roster[target]){
+    const cur=roster[target];
+    const held=document.createElement('div');held.className='held-note';
+    held.innerHTML=`Currently slotted at ${target}: <b>${cur.nm}</b> (${cur.era} · ${cityOf(cur.team)}). Pick a card above to swap, or `;
+    const keep=document.createElement('button');keep.className='btn ghost sm';keep.textContent='Keep '+lastName(cur.nm);
+    keep.onclick=()=>{pendingPos=null;freshSpin();renderField();window.scrollTo({top:0,behavior:'smooth'});};
+    held.appendChild(keep);
+    area.appendChild(held);
+  }
+  // passed-on list for this position (engagement: who you skipped)
+  const sk=passed[target]||[];
+  if(sk.length){
+    const box=document.createElement('div');box.className='passed-box';
+    box.innerHTML=`<div class="passed-h">Passed on at ${target} (${sk.length})</div>`+
+      `<div class="passed-list">${sk.map(q=>`<span class="passed-chip">${q.nm} <em>${q.era} · ${cityOf(q.team)}</em></span>`).join('')}</div>`;
+    area.appendChild(box);
+  }
+}
+function statColor(v){return v>=90?'var(--good)':v>=78?'var(--mid)':'var(--bad)';}
+
+function draftPlayer(p){
+  const target=currentTarget();
+  // everyone else shown at this position this round = passed on
+  const shown=expandedRoster(current).filter(q=>q.pos===target);
+  const passedNow=shown.filter(q=>q.nm!==p.nm);
+  passed[target]=passed[target]||[];
+  passedNow.forEach(q=>{if(!passed[target].some(e=>e.nm===q.nm))passed[target].push(q);});
+  const wasFilled=!!roster[target];
+  roster[target]={...p}; // assign to the position we're drafting for
+  if(!wasFilled)pickHistory.push(target); // only track first-time fills for undo
+  pendingPos=null;       // clear any tap override
+  if(Object.keys(roster).length>=POSORDER.length)runSeason();
+  else{freshSpin();renderField();window.scrollTo({top:0,behavior:'smooth'});}
+}
+/* undo the most recent NEW pick (not a change): clear it and replay
+   the exact cards you saw there (no re-shuffle). */
+function undoLast(){
+  if(pickHistory.length===0)return;
+  const pos=pickHistory.pop();
+  delete roster[pos];
+  reopenPosition(pos);
+}
+/* Field coordinates as % of the field box (x:left, y:top).
+   Offense occupies top half (LOS at 50%), defense bottom half.
+   OL/DL are wide "line" units; WR and CB are flanked out wide. */
+const FIELD_POS={
+  // offense (top)
+  WR:{x:82,y:30,type:'slot'},   // flanked wide, well above the OL line
+  QB:{x:38,y:18,type:'slot'},   // backfield
+  RB:{x:62,y:18,type:'slot'},   // backfield
+  OL:{x:50,y:46,type:'line'},   // spread across the LOS (offense side)
+  // defense (bottom)
+  DL:{x:50,y:58,type:'line'},   // spread across the LOS (defense side)
+  LB:{x:34,y:74,type:'slot'},
+  MLB:{x:58,y:74,type:'slot'},
+  CB:{x:82,y:72,type:'slot'},   // flanked wide (DB), well below the DL line
+  S:{x:50,y:90,type:'slot'}     // deep safety
+};
+function renderField(){
+  const field=document.getElementById('field');
+  const undo=document.getElementById('undoBtn');if(undo)undo.disabled=pickHistory.length===0;
+  // clear everything except the two side labels
+  [...field.querySelectorAll('.fslot,.fline')].forEach(n=>n.remove());
+  const target=currentTarget();
+  POSORDER.forEach(pos=>{
+    const cfg=FIELD_POS[pos];if(!cfg)return;
+    const p=roster[pos];
+    const isCur=pos===target;
+    const dot=p?'✓':(isCur?'•':'');
+    const el=document.createElement('div');
+    if(cfg.type==='line'){
+      el.className='fline'+(p?' filled':'')+(isCur?' cur':'');
+      el.innerHTML=`<span class="dot">${dot}</span><div class="lwrap"><div class="pos">${pos}</div>`+
+        (p?`<div class="who">${lastName(p.nm)}</div><div class="yr">${p.era} · ${cityOf(p.team)}</div>`:`<div class="who">—</div>`)+`</div>`;
+    }else{
+      el.className='fslot'+(p?' filled':'')+(isCur?' cur':'');
+      el.innerHTML=`<span class="dot">${dot}</span><div class="pos">${pos}</div>`+
+        (p?`<div class="who">${lastName(p.nm)}</div><div class="yr">${p.era} · ${cityOf(p.team)}</div>`:`<div class="who">—</div>`);
+    }
+    el.style.left=cfg.x+'%';el.style.top=cfg.y+'%';
+    el.onclick=()=>tapPosition(pos);
+    field.appendChild(el);
+  });
+}
+function lastName(nm){return nm.split(' ').slice(-1)[0];}
+/* re-open a position you've already seen: replay the EXACT cards you
+   had there (no new spin), with shuffles disabled. Falls back to a
+   fresh spin only if we somehow have no saved view. */
+function reopenPosition(pos){
+  pendingPos=pos;
+  if(lastView[pos]){
+    reopening=true;
+    current=lastView[pos];
+    // no spin animation — show the saved landing immediately
+    const rc=document.getElementById('reelConf'),rd=document.getElementById('reelDiv'),re=document.getElementById('reelEra');
+    const pool=landingPool(current);
+    rc.textContent=current.conf;rd.textContent=current.div;
+    re.textContent=current.era?current.era:eraSpanLabel(pool);
+    document.getElementById('hud-round').textContent=`Editing ${pos}`;
+    showCards(current);
+    updateProgress();renderField();renderSkips();
+    reopening=false;
+  }else{
+    reopening=false;freshSpin();renderField();
+  }
+  document.getElementById('slot').scrollIntoView({behavior:'smooth',block:'center'});
+}
+/* return to the draft from the result screen to change any pick */
+function backToDraft(){
+  document.getElementById('screen-result').classList.remove('active');
+  document.getElementById('screen-draft').classList.add('active');
+  pendingPos=null;
+  freshSpin();renderField();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+/* tap a position on the field: open/re-open drafting for THAT position.
+   If you've already seen this position, you only get the cards you had
+   (no re-shuffle). A never-seen position gets a normal fresh spin. */
+function tapPosition(pos){
+  if(lastView[pos]){reopenPosition(pos);}
+  else{pendingPos=pos;reopening=false;freshSpin();document.getElementById('slot').scrollIntoView({behavior:'smooth',block:'center'});}
+}
+
+/* SIMULATION */
+function teamRatings(){let off=0,def=0;for(const k in OFF_W)off+=ovr(roster[k].s)*OFF_W[k];for(const k in DEF_W)def+=ovr(roster[k].s)*DEF_W[k];return {off:+off.toFixed(1),def:+def.toFixed(1)};}
+function st(pos,name){const i=STATLABELS[pos].indexOf(name);return i<0?0:roster[pos].s[i];}
+function evaluateChemistry(){
+  let delta=0;const lines=[];const r=roster;
+  if(st('QB','Mobility')>=85&&ovr(r.OL.s)>=92){delta+=4;lines.push({type:'syn',text:`<b>Clean Pocket:</b> ${r.QB.nm}'s mobility behind ${r.OL.nm} means almost no sacks.`});}
+  if(st('QB','Accuracy')>=92&&st('WR','Speed')>=92){delta+=4;lines.push({type:'syn',text:`<b>Deep Threat:</b> ${r.QB.nm}'s accuracy + ${r.WR.nm}'s speed scores from anywhere.`});}
+  if(st('RB','Power')>=90&&ovr(r.OL.s)>=92){delta+=3;lines.push({type:'syn',text:`<b>Ground & Pound:</b> ${r.RB.nm} behind ${r.OL.nm} controls the clock.`});}
+  if(st('DL','Pass Rush')>=94&&st('CB','Coverage')>=94){delta+=5;lines.push({type:'syn',text:`<b>Rush + Cover:</b> ${r.DL.nm}'s pressure with ${r.CB.nm} locked down forces coverage sacks and picks.`});}
+  if(st('S','Range')>=94&&st('MLB','Coverage')>=88){delta+=3;lines.push({type:'syn',text:`<b>Middle Wall:</b> ${r.MLB.nm} and ${r.S.nm} erase the seam.`});}
+  if(st('LB','Pass Rush')>=92&&st('DL','Pass Rush')>=94){delta+=4;lines.push({type:'syn',text:`<b>Double Edge:</b> ${r.DL.nm} and ${r.LB.nm} collapse the pocket from both sides.`});}
+  if(st('CB','Coverage')<88&&st('DL','Pass Rush')<90){delta-=4;lines.push({type:'pen',text:`<b>Soft Secondary:</b> ${r.CB.nm} on an island without a fierce rush gets picked on.`});}
+  if(ovr(r.OL.s)<90&&st('QB','Mobility')<68){delta-=4;lines.push({type:'pen',text:`<b>Sitting Duck:</b> a pocket QB behind a non-elite line takes hits all day.`});}
+  if(st('S','Hitting')<82&&st('MLB','Tackling')<90){delta-=3;lines.push({type:'pen',text:`<b>Missed Tackles:</b> not enough thump at MLB/S — runners fall forward.`});}
+  return {delta,lines};
+}
+/* ---- ROSTER ARCHETYPE (fantasy-style identity label) ---- */
+function rosterArchetype(){
+  const r=roster;
+  const passO=(st('QB','Accuracy')+st('QB','Arm')+st('WR','Speed')+st('WR','Route'))/4;
+  const runO=(st('RB','Power')+st('RB','Vision')+ovr(r.OL.s))/3;
+  const passRush=(st('DL','Pass Rush')+st('LB','Pass Rush'))/2;
+  const coverD=(st('CB','Coverage')+st('S','Coverage')+st('MLB','Coverage'))/3;
+  const offAvg=(ovr(r.QB.s)+ovr(r.RB.s)+ovr(r.WR.s)+ovr(r.OL.s))/4;
+  const defAvg=(ovr(r.DL.s)+ovr(r.LB.s)+ovr(r.MLB.s)+ovr(r.CB.s)+ovr(r.S.s))/5;
+  // pick the dominant identity
+  if(offAvg>=defAvg+5){
+    if(passO>=runO+4)return {name:'Air Raid',desc:'A pass-first attack that lights up the scoreboard.'};
+    if(runO>=passO+4)return {name:'Ground & Pound',desc:'Bully ball — run it down their throats and milk the clock.'};
+    return {name:'Balanced Offense',desc:'A flexible attack that can win it through the air or on the ground.'};
+  }
+  if(defAvg>=offAvg+5){
+    if(passRush>=coverD+4)return {name:'Pressure Defense',desc:'Get to the quarterback and let chaos reign.'};
+    if(coverD>=passRush+4)return {name:'Bend-But-Don\'t-Break',desc:'Lockdown coverage that takes the ball away.'};
+    return {name:'Stone Wall D',desc:'A complete defense with no easy answers for it.'};
+  }
+  if(passO>=runO+6)return {name:'Aerial Show',desc:'Tilted toward the deep ball and big-play passing.'};
+  if(runO>=passO+6)return {name:'Smashmouth',desc:'Old-school football — lines and a back that punish.'};
+  return {name:'All-Rounder',desc:'No glaring strength, no glaring hole — balanced top to bottom.'};
+}
+
+/* ---- MVP and weakest link (argument hooks) ---- */
+function rosterMVP(){
+  // highest OVR, weighted slightly by its sim importance
+  const W={QB:.34,RB:.18,WR:.24,OL:.24,DL:.24,LB:.18,MLB:.20,CB:.22,S:.16};
+  let best=null,bestScore=-1;
+  POSORDER.forEach(k=>{const sc=ovr(roster[k].s)*(0.6+W[k]);if(sc>bestScore){bestScore=sc;best=k;}});
+  return {pos:best,player:roster[best]};
+}
+function rosterWeakLink(){
+  let worst=null,worstOvr=200;
+  POSORDER.forEach(k=>{const o=ovr(roster[k].s);if(o<worstOvr){worstOvr=o;worst=k;}});
+  return {pos:worst,player:roster[worst],ovr:worstOvr};
+}
+
+function runSeason(){
+  const tr=teamRatings();const chem=evaluateChemistry();
+  // cap chemistry so it sharpens a build but can't trivially guarantee 17-0
+  const cappedDelta=Math.max(-12,Math.min(8,chem.delta));
+  const base=(tr.off+tr.def)/2+cappedDelta;
+  const games=[];let wins=0;
+  for(let w=1;w<=17;w++){
+    // opponents: tough and climbing — 17-0 must be earned
+    const opp=82+(w/17)*15+Math.sin(w)*2.5+(Math.random()*7-3.5);   // ~82 -> ~97
+    const margin=base-opp;const wp=1/(1+Math.exp(-margin/5.0));     // steep curve
+    const win=Math.random()<wp;if(win)wins++;
+    let us=Math.round(17+Math.max(0,margin)*0.8+Math.random()*10+(win?7:0));
+    let them=Math.round(14+Math.max(0,-margin)*0.8+Math.random()*10+(win?0:7));
+    if(win&&us<=them)us=them+1+Math.floor(Math.random()*7);
+    if(!win&&them<=us)them=us+1+Math.floor(Math.random()*7);
+    games.push({w,win,us,them});
+  }
+  const tier=resultTier(base,wins);
+  season={tr,chem,base,games,wins,losses:17-wins,tier,
+          archetype:rosterArchetype(),mvp:rosterMVP(),weak:rosterWeakLink()};
+  showResult();
+}
+/* map team strength + record to a rough percentile/flex tier */
+function resultTier(base,wins){
+  if(wins===17)return {label:'Top 1% — Immortal',pct:99};
+  if(wins===16)return {label:'Top 5% — Elite',pct:95};
+  if(wins>=13)return {label:'Top 15% — Contender',pct:85};
+  if(wins>=10)return {label:'Top 40% — Playoff Team',pct:60};
+  if(wins>=7)return {label:'Middle of the Pack',pct:40};
+  return {label:'Bottom Tier — Rebuild',pct:15};
+}
+function showResult(){
+  document.getElementById('screen-draft').classList.remove('active');
+  document.getElementById('screen-result').classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+  const {tr,chem,games,wins,losses}=season;
+  const rec=document.getElementById('recordBig');rec.textContent=`${wins}-${losses}`;rec.className='record'+(wins===17?' perfect':'');
+  const t=document.getElementById('resultTitle'),sub=document.getElementById('resultSub'),badge=document.getElementById('badgeWrap');badge.innerHTML='';
+  let title,subtitle;
+  if(wins===17){title='PERFECT SEASON';subtitle='You beat the algorithm clean. Immortality — this roster never lost.';badge.innerHTML='<span class="badge">🏆 17-0 — Undefeated</span>';}
+  else if(wins===16){title='So Close It Hurts';subtitle='One bad Sunday from perfection. A single slip cost you history.';}
+  else if(wins>=13){title='Championship Caliber';subtitle='A dominant year and a real title contender — but not flawless.';}
+  else if(wins>=10){title='Playoff Team';subtitle='Solid and dangerous, with a clear weakness the algorithm exploited.';}
+  else if(wins>=7){title='Middle of the Pack';subtitle='Flashes of brilliance, but the roster has real holes.';}
+  else{title='Long Season';subtitle='The build did not hold up. Rethink the balance and run it back.';}
+  t.textContent=title;sub.textContent=subtitle;
+  // tier + archetype
+  document.getElementById('tierWrap').innerHTML=`<span class="tier">${season.tier.label}</span>`;
+  document.getElementById('archWrap').innerHTML=`<div class="arch"><div class="an">${season.archetype.name}</div><div class="ad">${season.archetype.desc}</div></div>`;
+  // verdict: MVP + weak link
+  const mvp=season.mvp,weak=season.weak;
+  const vd=document.getElementById('verdictLines');
+  vd.innerHTML=
+    `<div class="verdict-row"><span class="vi">⭐</span><span><b class="mvp">Roster MVP:</b> ${mvp.player.nm} (${mvp.pos}, ${mvp.player.era} ${cityOf(mvp.player.team)}) — your highest-rated piece and the engine of this team.</span></div>`+
+    `<div class="verdict-row"><span class="vi">⚠️</span><span><b class="weak">Weakest link:</b> ${weak.player.nm} (${weak.pos}, ${weak.ovr} OVR) — the spot the algorithm picked on most. Upgrade here and you climb a tier.</span></div>`;
+  const grid=document.getElementById('seasonGrid');grid.innerHTML='';
+  games.forEach(g=>{const c=document.createElement('div');c.className='gm '+(g.win?'W':'L');c.innerHTML=`<span class="wk">W${g.w}</span><b>${g.win?'W':'L'}</b><span class="wk">${g.us}-${g.them}</span>`;grid.appendChild(c);});
+  const ratings=document.getElementById('teamRatings');ratings.innerHTML='';
+  const items=[['Offense',tr.off],['Defense',tr.def]];POSORDER.forEach(k=>items.push([k,ovr(roster[k].s)]));
+  items.forEach(([label,v])=>{const row=document.createElement('div');row.className='rline';row.innerHTML=`<span class="rl">${label}</span><span class="rbar"><i style="width:${Math.min(100,v)}%;background:${statColor(v)}"></i></span><span class="rv">${Math.round(v)}</span>`;ratings.appendChild(row);});
+  const synLines=document.getElementById('synLines');synLines.innerHTML='';
+  if(chem.lines.length===0)synLines.innerHTML='<div class="line"><span class="ic">—</span><span>A balanced roster with no standout synergies or glaring holes. Pure talent carried you.</span></div>';
+  else chem.lines.forEach(l=>{const d=document.createElement('div');d.className='line '+l.type;d.innerHTML=`<span class="ic">${l.type==='syn'?'▲':'▼'}</span><span>${l.text}</span>`;synLines.appendChild(d);});
+  buildShare();
+}
+function buildShare(){
+  const {wins,losses,games,tier,archetype}=season;const dots=games.map(g=>g.win?'🟩':'🟥').join('');
+  let lines='17-0 — The Perfect Season Draft\n';
+  lines+=`Record: ${wins}-${losses}${wins===17?' 🏆 PERFECT':''}  ·  ${tier.label}\n`;
+  lines+=`Style: ${archetype.name}\n${dots}\n\n`;
+  POSORDER.forEach(k=>{lines+=`${k} ${roster[k].nm} (${roster[k].era} ${cityOf(roster[k].team)})\n`;});
+  lines+=`\n⭐ MVP: ${season.mvp.player.nm}  ·  ⚠️ Weak: ${season.weak.player.nm}`;
+  lines+='\n\nCan you go 17-0?';
+  document.getElementById('shareBox').textContent=lines;
+  renderCard();
+}
+function copyResult(btn){
+  const txt=document.getElementById('shareBox').textContent;
+  const ok=()=>{if(btn){const o=btn.textContent;btn.textContent='Copied ✓';setTimeout(()=>btn.textContent=o,1500);}};
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(ok).catch(()=>fallbackCopy(txt,ok));
+  }else{fallbackCopy(txt,ok);}
+}
+function fallbackCopy(txt,ok){
+  try{const ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();ok&&ok();}catch(e){}
+}
+
+/* ---- IMAGE SHARE CARD (canvas) ---- */
+function renderCard(){
+ try{
+  const cv=document.getElementById('shareCanvas');const x=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  const {wins,losses,games,tier,archetype}=season;
+  // bg
+  const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0d2415');g.addColorStop(.5,'#13301d');g.addColorStop(1,'#0a1410');
+  x.fillStyle=g;x.fillRect(0,0,W,H);
+  // yard lines
+  x.strokeStyle='rgba(255,255,255,.05)';x.lineWidth=2;
+  for(let i=1;i<14;i++){x.beginPath();x.moveTo(0,i*H/14);x.lineTo(W,i*H/14);x.stroke();}
+  // ---- TITLE / WORDMARK (the game's name) ----
+  x.textAlign='center';
+  x.font='900 132px Archivo Black, Arial';
+  // measure so "17" + "-0" stay centered as one wordmark
+  const w17=x.measureText('17').width, wdash=x.measureText('-0').width, total=w17+wdash;
+  const startX=W/2-total/2;
+  x.fillStyle='#f4f1e8';x.textAlign='left';x.fillText('17',startX,170);
+  x.fillStyle='#f5c542';x.fillText('-0',startX+w17,170);
+  x.textAlign='center';
+  x.fillStyle='#7d8a99';x.font='600 28px Oswald, Arial';x.fillText('THE PERFECT SEASON DRAFT',W/2,214);
+  // thin divider
+  x.strokeStyle='rgba(245,197,66,.35)';x.lineWidth=2;x.beginPath();x.moveTo(W/2-150,242);x.lineTo(W/2+150,242);x.stroke();
+  // ---- FINAL RECORD (clearly labeled so it isn't mistaken for the title) ----
+  x.fillStyle='#7d8a99';x.font='600 26px Oswald, Arial';x.fillText('FINAL RECORD',W/2,288);
+  x.fillStyle=wins===17?'#f5c542':'#f4f1e8';x.font='900 120px Archivo Black, Arial';x.fillText(`${wins}-${losses}`,W/2,400);
+  // tier + archetype
+  x.fillStyle='#f5c542';x.font='600 34px Oswald, Arial';x.fillText(tier.label.toUpperCase(),W/2,452);
+  x.fillStyle='#f4f1e8';x.font='900 54px Archivo Black, Arial';x.fillText(archetype.name,W/2,522);
+  // season dots grid
+  const cols=8,cell=70,gw=cols*cell,gx=(W-gw)/2,gy=560;
+  games.forEach((gm,i)=>{const cx=gx+(i%cols)*cell,cy=gy+Math.floor(i/cols)*cell;
+    x.fillStyle=gm.win?'#1d4a2e':'#4a1d1d';x.strokeStyle=gm.win?'#4fd17a':'#d8423a';x.lineWidth=3;
+    roundRect(x,cx+6,cy+6,cell-12,cell-12,8);x.fill();x.stroke();
+    x.fillStyle=gm.win?'#4fd17a':'#d8423a';x.font='700 30px Oswald, Arial';x.textAlign='center';
+    x.fillText(gm.win?'W':'L',cx+cell/2,cy+cell/2+10);});
+  // roster list
+  let ry=812;x.textAlign='left';
+  const colX=[90,W/2+30];
+  POSORDER.forEach((k,i)=>{
+    const col=i<5?0:1;const row=i<5?i:i-5;const px=colX[col],py=ry+row*86;
+    x.fillStyle='#f5c542';x.font='700 28px Oswald, Arial';x.fillText(k,px,py);
+    x.fillStyle='#f4f1e8';x.font='800 34px Archivo, Arial';x.fillText(roster[k].nm,px+70,py);
+    x.fillStyle='#7d8a99';x.font='400 22px Oswald, Arial';x.fillText(`${roster[k].era} · ${cityOf(roster[k].team)}`,px+70,py+30);
+  });
+  // footer
+  x.textAlign='center';x.fillStyle='#7d8a99';x.font='600 26px Oswald, Arial';
+  x.fillText('BUILD YOURS · CAN YOU GO 17-0?',W/2,H-50);
+  // preview thumbnail
+  const prev=document.getElementById('cardPreview');
+  try{prev.innerHTML=`<img src="${cv.toDataURL('image/png')}" style="max-width:320px;width:100%;border-radius:10px;border:1px solid var(--card-edge)"/>`;}
+  catch(e){prev.innerHTML='<div style="color:var(--steel);font-size:12px">Preview unavailable on this browser — Download still works.</div>';}
+ }catch(err){console.log('card render skipped:',err&&err.message);}
+}
+function roundRect(x,X,Y,w,h,r){x.beginPath();x.moveTo(X+r,Y);x.arcTo(X+w,Y,X+w,Y+h,r);x.arcTo(X+w,Y+h,X,Y+h,r);x.arcTo(X,Y+h,X,Y,r);x.arcTo(X,Y,X+w,Y,r);x.closePath();}
+function downloadCard(btn){
+  const flash=(msg)=>{if(btn){const o=btn.dataset.orig||btn.textContent;btn.dataset.orig=o;btn.textContent=msg;setTimeout(()=>btn.textContent=o,1800);}};
+  const cv=document.getElementById('shareCanvas');
+  // make sure the card image is current before sharing
+  try{renderCard();}catch(e){}
+  const fname=`17-0-${season.wins}-${season.losses}.png`;
+  const caption=`I went ${season.wins}-${season.losses} in 17-0 (${season.tier.label}). Can you beat it? Open the file and build your perfect NFL season.`;
+  // Path 1: Web Share with the image file (opens the iOS share sheet → Messages)
+  try{
+    if(navigator.canShare&&cv.toBlob){
+      cv.toBlob(blob=>{
+        if(!blob){return fallbackDataUrl(cv,fname,flash);}
+        const file=new File([blob],fname,{type:'image/png'});
+        if(navigator.canShare({files:[file]})){
+          navigator.share({files:[file],title:'17-0',text:caption})
+            .then(()=>flash('Shared ✓'))
+            .catch(err=>{ // user cancel is fine; only fall back on real failure
+              if(err&&(err.name==='AbortError'||err.name==='NotAllowedError'))return;
+              tryBlobDownload(blob,fname,cv,flash);
+            });
+        }else{
+          tryBlobDownload(blob,fname,cv,flash);
+        }
+      },'image/png');
+      return;
+    }
+  }catch(e){/* fall through */}
+  // Path 2: blob download
+  try{
+    if(cv.toBlob){cv.toBlob(blob=>{if(blob)tryBlobDownload(blob,fname,cv,flash);else fallbackDataUrl(cv,fname,flash);},'image/png');return;}
+  }catch(e){/* fall through */}
+  // Path 3: data URL
+  fallbackDataUrl(cv,fname,flash);
+}
+function tryBlobDownload(blob,fname,cv,flash){
+  try{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=fname;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),3000);
+    flash&&flash('Saved ✓');
+  }catch(e){fallbackDataUrl(cv,fname,flash);}
+}
+function fallbackDataUrl(cv,fname,flash){
+  try{
+    const data=cv.toDataURL('image/png');
+    const a=document.createElement('a');a.href=data;a.download=fname;
+    document.body.appendChild(a);a.click();a.remove();
+    flash&&flash('Saved ✓');
+  }catch(e){
+    // last resort: open the preview image so the user can long-press to save
+    const w=window.open();
+    if(w){w.document.write('<img src="'+cv.toDataURL('image/png')+'" style="max-width:100%"/>');flash&&flash('Long-press to save');}
+    else{flash&&flash('Use the preview below');}
+  }
+}
+/* initialize the landing screen on load */
+try{initLanding();}catch(e){/* if anything fails, Play Now still works */}
+</script>
+</body>
+</html>
