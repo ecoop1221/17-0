@@ -166,8 +166,8 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 }
 .fslot.filled,.fline.filled{cursor:pointer;}
 .fslot.filled:hover,.fline.filled:hover{border-color:var(--gold);box-shadow:0 0 10px rgba(245,197,66,.35);}
-.draft-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;margin:10px 0 4px;}
-.tap-hint{font-size:11px;color:var(--steel);font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;letter-spacing:.5px;}
+.draft-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;margin:8px 0 2px;}
+.tap-hint{font-size:11px;color:#5e6e62;font-family:'Oswald','Oswald',-apple-system,'Helvetica Neue',sans-serif;letter-spacing:.5px;font-style:italic;}
 .held-note{background:rgba(245,197,66,.08);border:1px solid var(--gold-deep);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:12.5px;color:#d8c49a;line-height:1.5;}
 .held-note b{color:var(--gold);}
 .held-note .btn{margin-left:6px;vertical-align:middle;}
@@ -306,7 +306,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="side-label def">Defense</div>
     </div>
     <div class="hud">
-      <div class="rnd">Round <b id="hud-round">1 / 9</b></div>
+      <div class="rnd">Pick <b id="hud-round">1 / 9</b></div>
       <div class="skips">
         <div class="skipitem"><div class="lab">Era</div><div class="v" id="eraSkip">2</div></div>
         <div class="skipitem"><div class="lab">Div</div><div class="v" id="divSkip">2</div></div>
@@ -325,8 +325,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
 
     <div class="draft-tools">
-      <button class="btn ghost sm" id="undoBtn" onclick="undoLast()">↩ Undo Last Pick</button>
-      <span class="tap-hint">Tip: tap any spot on the field to draft or change it</span>
+      <span class="tap-hint">Tip: tap any spot on the field to draft or change a pick</span>
     </div>
     <div id="draftArea"></div>
   </section>
@@ -1374,16 +1373,16 @@ function undoLast(){
    OL/DL are wide "line" units; WR and CB are flanked out wide. */
 const FIELD_POS={
   // offense (top)
-  WR:{x:84,y:46,type:'slot'},   // flanked wide, just above LOS
-  QB:{x:38,y:22,type:'slot'},   // backfield
-  RB:{x:62,y:22,type:'slot'},   // backfield
-  OL:{x:50,y:44,type:'line'},   // spread across the LOS (offense side)
+  WR:{x:82,y:30,type:'slot'},   // flanked wide, well above the OL line
+  QB:{x:38,y:18,type:'slot'},   // backfield
+  RB:{x:62,y:18,type:'slot'},   // backfield
+  OL:{x:50,y:46,type:'line'},   // spread across the LOS (offense side)
   // defense (bottom)
-  DL:{x:50,y:56,type:'line'},   // spread across the LOS (defense side)
-  LB:{x:34,y:70,type:'slot'},
-  MLB:{x:58,y:70,type:'slot'},
-  CB:{x:84,y:64,type:'slot'},   // flanked wide (DB)
-  S:{x:50,y:88,type:'slot'}     // deep safety
+  DL:{x:50,y:58,type:'line'},   // spread across the LOS (defense side)
+  LB:{x:34,y:74,type:'slot'},
+  MLB:{x:58,y:74,type:'slot'},
+  CB:{x:82,y:72,type:'slot'},   // flanked wide (DB), well below the DL line
+  S:{x:50,y:90,type:'slot'}     // deep safety
 };
 function renderField(){
   const field=document.getElementById('field');
