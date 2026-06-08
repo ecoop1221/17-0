@@ -341,23 +341,30 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
       <div id="archWrap"></div>
     </div>
     <div class="season-grid" id="seasonGrid"></div>
-    <div class="analysis"><h3>The Verdict</h3><div id="verdictLines"></div></div>
-    <div class="analysis"><h3>Team Ratings</h3><div class="ratings-2col" id="teamRatings"></div></div>
-    <div class="analysis"><h3>What Decided It</h3><div id="synLines"></div></div>
     <canvas id="shareCanvas" width="1080" height="1350" style="display:none"></canvas>
     <div id="cardPreview" style="text-align:center;margin:14px 0"></div>
-    <div class="share-box" id="shareBox"></div>
     <div class="actions">
       <button class="btn" onclick="downloadCard(this)">📤 Share Record Card</button>
-      <button class="btn ghost" onclick="backToDraft()">Tweak Roster</button>
       <button class="btn ghost" onclick="copyResult(this)">Copy Text</button>
       <button class="btn ghost" onclick="location.reload()">Run It Back</button>
     </div>
+    <div class="analysis"><h3>The Verdict</h3><div id="verdictLines"></div></div>
+    <div class="analysis"><h3>Team Ratings</h3><div class="ratings-2col" id="teamRatings"></div></div>
+    <div class="analysis"><h3>What Decided It</h3><div id="synLines"></div></div>
+    <div class="share-box" id="shareBox"></div>
     <div class="foot">17-0 — Build the perfect season.</div>
   </section>
 </div>
 
 <script>
+/* The playable link shown on the share card and used in share text.
+   When hosted (http/https) it auto-uses the current address so it's
+   always correct; otherwise it falls back to the GitHub Pages URL. */
+const APP_URL=(location.protocol==='http:'||location.protocol==='https:')
+  ? (location.origin+location.pathname).replace(/index\.html?$/i,'').replace(/\/$/,'')
+  : 'https://ecoop1221.github.io/17-0';
+const APP_URL_DISPLAY=APP_URL.replace(/^https?:\/\//,'');  // no scheme, cleaner on the card
+
 /* ============================================================
    DATA MODEL — real NFL structure
    CONFERENCES > DIVISIONS > TEAMS > ERAS > [players]
@@ -1198,8 +1205,9 @@ function freshSpin(){
   const cands=divsWithPosition();          // {conf,div} — era open (span shown)
   animate(pickBest(cands));
 }
-/* when every slot is filled and nothing is being changed, prompt the
-   user to tap a position to change it (used after Tweak Roster). */
+/* Safety fallback: if freshSpin is ever called with all 9 slots filled
+   (no open target), show a re-sim prompt rather than erroring. Not
+   reachable in normal play — drafting the 9th pick runs the season. */
 function showTweakPrompt(){
   document.getElementById('reelConf').textContent='—';
   document.getElementById('reelDiv').textContent='—';
@@ -1576,7 +1584,7 @@ function buildShare(){
   lines+=`Style: ${archetype.name}\n${dots}\n\n`;
   POSORDER.forEach(k=>{lines+=`${k} ${roster[k].nm} (${roster[k].era} ${cityOf(roster[k].team)})\n`;});
   lines+=`\n⭐ MVP: ${season.mvp.player.nm}  ·  ⚠️ Weak: ${season.weak.player.nm}`;
-  lines+='\n\nCan you go 17-0?';
+  lines+='\n\nCan you go 17-0? Play: '+APP_URL;
   document.getElementById('shareBox').textContent=lines;
   renderCard();
 }
@@ -1637,9 +1645,12 @@ function renderCard(){
     x.fillStyle='#f4f1e8';x.font='800 34px Archivo, Arial';x.fillText(roster[k].nm,px+70,py);
     x.fillStyle='#7d8a99';x.font='400 22px Oswald, Arial';x.fillText(`${roster[k].era} · ${cityOf(roster[k].team)}`,px+70,py+30);
   });
-  // footer
-  x.textAlign='center';x.fillStyle='#7d8a99';x.font='600 26px Oswald, Arial';
-  x.fillText('BUILD YOURS · CAN YOU GO 17-0?',W/2,H-50);
+  // footer — call to action + playable link so receivers can tap through
+  x.textAlign='center';
+  x.fillStyle='#7d8a99';x.font='600 24px Oswald, Arial';
+  x.fillText('BUILD YOURS · CAN YOU GO 17-0?',W/2,H-78);
+  x.fillStyle='#f5c542';x.font='700 30px Oswald, Arial';
+  x.fillText(APP_URL_DISPLAY,W/2,H-38);
   // preview thumbnail
   const prev=document.getElementById('cardPreview');
   try{prev.innerHTML=`<img src="${cv.toDataURL('image/png')}" style="max-width:320px;width:100%;border-radius:10px;border:1px solid var(--card-edge)"/>`;}
@@ -1653,7 +1664,7 @@ function downloadCard(btn){
   // make sure the card image is current before sharing
   try{renderCard();}catch(e){}
   const fname=`17-0-${season.wins}-${season.losses}.png`;
-  const caption=`I went ${season.wins}-${season.losses} in 17-0 (${season.tier.label}). Can you beat it? Open the file and build your perfect NFL season.`;
+  const caption=`I went ${season.wins}-${season.losses} in 17-0 (${season.tier.label}). Can you beat it? Play: ${APP_URL}`;
   // Path 1: Web Share with the image file (opens the iOS share sheet → Messages)
   try{
     if(navigator.canShare&&cv.toBlob){
